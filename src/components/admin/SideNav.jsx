@@ -75,9 +75,8 @@ export default function SideNav() {
             className="w-full flex items-center gap-3 px-6 py-2 text-on-surface-variant hover:text-primary transition-colors text-left"
           >
             <span className="material-symbols-outlined text-[20px]">
-              logout
+              Log Out
             </span>
-            <span className="text-label-sm">Log Out</span>
           </button>
         </form>
       </div>
