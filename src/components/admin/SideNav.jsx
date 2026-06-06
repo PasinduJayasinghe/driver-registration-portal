@@ -31,7 +31,8 @@ export default function SideNav() {
   const pathname = usePathname();
   const isRequests = pathname?.startsWith("/admin/requests");
   const isEmployees = pathname?.startsWith("/admin/employees");
-  const isOverview = !isRequests && !isEmployees;
+  const isPayroll = pathname?.startsWith("/admin/payroll");
+  const isOverview = !isRequests && !isEmployees && !isPayroll;
 
   return (
     <nav className="fixed left-0 top-0 h-screen w-64 z-50 flex-col pt-16 bg-surface-container border-r border-outline-variant/30 hidden md:flex">
@@ -65,6 +66,12 @@ export default function SideNav() {
           icon="badge"
           label="Employees"
           active={isEmployees}
+        />
+        <NavLink
+          href="/admin/payroll"
+          icon="payments"
+          label="Payroll"
+          active={isPayroll}
         />
       </div>
 

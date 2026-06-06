@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import DeleteEmployeeButton from "@/components/admin/DeleteEmployeeButton";
+import AddEmployeeButton from "@/components/admin/AddEmployeeButton";
 
 export const dynamic = "force-dynamic";
 
@@ -71,13 +72,18 @@ export default async function EmployeesPage({ searchParams }) {
 
   return (
     <>
-      <div className="flex flex-col gap-1">
-        <h1 className="text-headline-lg-mobile md:text-headline-lg text-on-surface">
-          Employees
-        </h1>
-        <p className="text-body-lg text-on-surface-variant">
-          Approved Fenix Cars team members. Remove anyone who has been let go.
-        </p>
+      <div className="flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-headline-lg-mobile md:text-headline-lg text-on-surface">
+            Employees
+          </h1>
+          <p className="text-body-lg text-on-surface-variant">
+            Approved Fenix Cars team members. Remove anyone who has been let go.
+          </p>
+        </div>
+        <div className="mt-2 md:mt-0">
+          <AddEmployeeButton />
+        </div>
       </div>
 
       <div className="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/30 flex flex-col">
@@ -118,8 +124,8 @@ export default async function EmployeesPage({ searchParams }) {
           <form className="flex items-center gap-2" action="/admin/employees">
             <input type="hidden" name="role" value={activeTab.key} />
             <div className="relative flex-1">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">
-                
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px] pointer-events-none">
+                search
               </span>
               <input
                 type="text"
@@ -187,6 +193,11 @@ export default async function EmployeesPage({ searchParams }) {
                       <div className="text-label-sm text-on-surface-variant font-mono">
                         {e.employeeId}
                       </div>
+                      {e.email ? (
+                        <div className="text-label-sm text-on-surface-variant/80">
+                          {e.email}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="py-4 px-6 text-on-surface-variant">
                       {e.contactNumber}

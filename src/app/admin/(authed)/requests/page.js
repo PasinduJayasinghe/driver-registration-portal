@@ -3,7 +3,7 @@ import {
   approveDriver,
   rejectDriver,
   resetDriver,
-} from "@/app/admin/(authed)/actions";
+} from "../actions";
 
 export const dynamic = "force-dynamic";
 
