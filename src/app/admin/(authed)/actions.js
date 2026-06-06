@@ -27,6 +27,7 @@ async function updateStatus(id, status) {
   });
   revalidatePath("/admin");
   revalidatePath("/admin/requests");
+  revalidatePath("/admin/employees");
 }
 
 export async function approveDriver(formData) {
@@ -51,4 +52,15 @@ export async function resetDriver(formData) {
   });
   revalidatePath("/admin");
   revalidatePath("/admin/requests");
+  revalidatePath("/admin/employees");
+}
+
+export async function deleteDriver(formData) {
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  await requireAdminEmail();
+  await prisma.driver.delete({ where: { id } });
+  revalidatePath("/admin");
+  revalidatePath("/admin/requests");
+  revalidatePath("/admin/employees");
 }

@@ -30,6 +30,8 @@ function NavLink({ href, icon, label, active }) {
 export default function SideNav() {
   const pathname = usePathname();
   const isRequests = pathname?.startsWith("/admin/requests");
+  const isEmployees = pathname?.startsWith("/admin/employees");
+  const isOverview = !isRequests && !isEmployees;
 
   return (
     <nav className="fixed left-0 top-0 h-screen w-64 z-50 flex-col pt-16 bg-surface-container border-r border-outline-variant/30 hidden md:flex">
@@ -50,13 +52,19 @@ export default function SideNav() {
           href="/admin"
           icon="dashboard"
           label="Overview"
-          active={!isRequests}
+          active={isOverview}
         />
         <NavLink
           href="/admin/requests"
           icon="person_add"
           label="Employee Requests"
           active={isRequests}
+        />
+        <NavLink
+          href="/admin/employees"
+          icon="badge"
+          label="Employees"
+          active={isEmployees}
         />
       </div>
 

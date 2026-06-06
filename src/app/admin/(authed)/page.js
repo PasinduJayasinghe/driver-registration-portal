@@ -34,9 +34,9 @@ function StatusPill({ status }) {
   );
 }
 
-function StatCard({ label, value, icon, accent }) {
-  return (
-    <div className="bg-surface-container-lowest rounded-xl p-6 shadow-sm border border-outline-variant/30 flex flex-col gap-4 relative overflow-hidden group hover:shadow-md transition-shadow">
+function StatCard({ label, value, icon, accent, href }) {
+  const content = (
+    <>
       {accent ? (
         <div className="absolute top-0 left-0 w-full h-1 bg-primary" />
       ) : null}
@@ -57,8 +57,20 @@ function StatCard({ label, value, icon, accent }) {
       <div className="text-display-lg font-extrabold text-on-surface mt-2">
         {value}
       </div>
-    </div>
+    </>
   );
+
+  const className =
+    "bg-surface-container-lowest rounded-xl p-6 shadow-sm border border-outline-variant/30 flex flex-col gap-4 relative overflow-hidden group hover:shadow-md transition-shadow";
+
+  if (href) {
+    return (
+      <Link href={href} className={className}>
+        {content}
+      </Link>
+    );
+  }
+  return <div className={className}>{content}</div>;
 }
 
 export default async function AdminOverviewPage() {
@@ -96,9 +108,20 @@ export default async function AdminOverviewPage() {
           value={pending}
           icon="pending_actions"
           accent
+          href="/admin/requests?tab=pending"
         />
-        <StatCard label="Approved Drivers" value={approved} icon="badge" />
-        <StatCard label="Rejected" value={rejected} icon="block" />
+        <StatCard
+          label="Approved Employees"
+          value={approved}
+          icon="badge"
+          href="/admin/employees"
+        />
+        <StatCard
+          label="Rejected"
+          value={rejected}
+          icon="block"
+          href="/admin/requests?tab=rejected"
+        />
         <StatCard label="Total Submissions" value={total} icon="groups" />
       </div>
 
