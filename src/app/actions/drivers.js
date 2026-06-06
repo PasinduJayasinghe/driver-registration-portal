@@ -4,10 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
 const JOB_ROLES = new Set([
-  "technician",
-  "sales",
+  "driver",
+  "sri_lankan_staff",
   "manager",
-  "support",
 ]);
 
 function fail(message) {

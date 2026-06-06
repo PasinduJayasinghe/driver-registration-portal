@@ -184,10 +184,9 @@ export default function DriverRegistrationForm() {
             <option value="" disabled>
               Select a role...
             </option>
-            <option value="technician">Service Technician</option>
-            <option value="sales">Sales Associate</option>
-            <option value="manager">Branch Manager</option>
-            <option value="support">Customer Support</option>
+            <option value="driver">Driver</option>
+            <option value="sri_lankan_staff">Sri Lankan Staff</option>
+            <option value="manager">Manager</option>
           </select>
         </div>
 

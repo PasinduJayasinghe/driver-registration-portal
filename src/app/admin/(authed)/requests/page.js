@@ -8,10 +8,9 @@ import {
 export const dynamic = "force-dynamic";
 
 const JOB_ROLE_LABELS = {
-  technician: "Service Technician",
-  sales: "Sales Associate",
-  manager: "Branch Manager",
-  support: "Customer Support",
+  driver: "Driver",
+  sri_lankan_staff: "Sri Lankan Staff",
+  manager: "Manager",
 };
 
 const STATUS_TABS = [
