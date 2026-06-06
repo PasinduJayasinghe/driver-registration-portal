@@ -119,7 +119,7 @@ export default async function EmployeesPage({ searchParams }) {
             <input type="hidden" name="role" value={activeTab.key} />
             <div className="relative flex-1">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">
-                search
+                
               </span>
               <input
                 type="text"
