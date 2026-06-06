@@ -4,7 +4,7 @@ import { useActionState, useEffect, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { registerDriver } from "@/app/actions/drivers";
 
-const initialState = { ok: false, message: "" };
+const initialState = { ok: false, message: "", employeeId: null };
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -135,23 +135,6 @@ export default function DriverRegistrationForm() {
 
         <div className="flex flex-col gap-1">
           <label
-            htmlFor="employeeId"
-            className="text-label-md font-semibold tracking-[0.05em] text-on-surface"
-          >
-            Employee ID
-          </label>
-          <input
-            id="employeeId"
-            name="employeeId"
-            type="text"
-            required
-            placeholder="FEN-12345"
-            className="px-3 py-2 border border-outline rounded-lg bg-surface-container-lowest text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-container/20 transition-shadow"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label
             htmlFor="contactNumber"
             className="text-label-md font-semibold tracking-[0.05em] text-on-surface"
           >
@@ -201,13 +184,26 @@ export default function DriverRegistrationForm() {
           >
             check_circle
           </span>
-          <div>
+          <div className="flex-1">
             <h3 className="text-label-md font-semibold tracking-[0.05em] text-on-surface mb-1">
               Success
             </h3>
             <p className="text-body-md text-on-surface-variant text-sm">
               {state.message}
             </p>
+            {state.employeeId ? (
+              <div className="mt-3 p-3 rounded-lg bg-surface-container-lowest border border-outline-variant">
+                <div className="text-label-sm uppercase tracking-[0.05em] text-on-surface-variant">
+                  Your Employee ID
+                </div>
+                <div className="text-headline-md font-bold text-primary mt-0.5 font-mono">
+                  {state.employeeId}
+                </div>
+                <p className="text-label-sm text-on-surface-variant mt-1">
+                  Save this ID — you&apos;ll need it for future reference.
+                </p>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
