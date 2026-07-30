@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import TimeEntriesTable from "@/components/admin/TimeEntriesTable";
+import Tabs from "@/components/ui/Tabs";
 import { MONTH_NAMES, officeMonthRange } from "@/lib/time";
 import { CLOCKABLE_ROLES } from "@/lib/auth";
 
@@ -145,44 +146,25 @@ export default async function TimeEntriesPage({ searchParams }) {
         </p>
       </div>
 
-      <div className="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/30 flex flex-col">
-        <div className="px-2 pt-2 border-b border-outline-variant/30 flex flex-wrap gap-1 overflow-x-auto">
-          {STATUS_TABS.map((tab) => {
-            const isActive = tab.key === activeTab.key;
-            const sp = new URLSearchParams();
-            if (tab.status) sp.set("status", tab.key);
-            if (employeeId) sp.set("employeeId", employeeId);
-            if (month) sp.set("month", month);
-            if (year) sp.set("year", year);
-            if (scope) sp.set("scope", scope);
-            const qs = sp.toString();
-            const href = qs ? `/admin/time-entries?${qs}` : "/admin/time-entries";
-            const count =
-              tab.status === null ? counts.all : counts[tab.key] ?? 0;
-            return (
-              <a
-                key={tab.key}
-                href={href}
-                className={`px-4 py-3 text-label-md font-semibold tracking-[0.05em] uppercase border-b-2 transition-colors flex items-center gap-2 ${
-                  isActive
-                    ? "border-primary text-primary"
-                    : "border-transparent text-on-surface-variant hover:text-on-surface"
-                }`}
-              >
-                {tab.label}
-                <span
-                  className={`text-label-sm px-2 py-0.5 rounded-full ${
-                    isActive
-                      ? "bg-primary-container/20 text-primary"
-                      : "bg-surface-container text-on-surface-variant"
-                  }`}
-                >
-                  {count}
-                </span>
-              </a>
-            );
-          })}
-        </div>
+      <div className="bg-surface-container-lowest rounded-2xl shadow-[var(--shadow-e1)] border border-outline-variant/30 flex flex-col">
+        <Tabs
+          activeKey={activeTab.key}
+          layoutId="time-entries-tab"
+          tabs={STATUS_TABS.map((tab) => ({
+            key: tab.key,
+            label: tab.label,
+            count: tab.status === null ? counts.all : counts[tab.key] ?? 0,
+            // Switching tabs keeps the filters but returns to page 1, since the
+            // current page number is meaningless against a different row count.
+            href: buildHref({
+              status: tab.status ? tab.key : null,
+              employeeId,
+              month,
+              year,
+              scope,
+            }),
+          }))}
+        />
 
         <div className="p-4 border-b border-outline-variant/30">
           <form
@@ -198,7 +180,7 @@ export default async function TimeEntriesPage({ searchParams }) {
                 id="scope"
                 name="scope"
                 defaultValue={scope}
-                className="px-3 py-2 bg-surface-container rounded-lg border border-outline-variant/40 text-body-md text-on-surface focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none"
+                className="px-3.5 py-2.5 bg-surface-container/70 rounded-xl border border-outline-variant/50 text-body-md text-on-surface transition-[background-color,border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-ios)] hover:border-outline-variant focus:bg-surface-container-lowest focus:border-primary focus:ring-4 focus:ring-primary/12 focus:outline-none"
               >
                 <option value="office">Office staff & managers</option>
                 <option value="all">All employees</option>
@@ -212,7 +194,7 @@ export default async function TimeEntriesPage({ searchParams }) {
                 id="month"
                 name="month"
                 defaultValue={month}
-                className="px-3 py-2 bg-surface-container rounded-lg border border-outline-variant/40 text-body-md text-on-surface focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none"
+                className="px-3.5 py-2.5 bg-surface-container/70 rounded-xl border border-outline-variant/50 text-body-md text-on-surface transition-[background-color,border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-ios)] hover:border-outline-variant focus:bg-surface-container-lowest focus:border-primary focus:ring-4 focus:ring-primary/12 focus:outline-none"
               >
                 <option value="">All months</option>
                 {MONTH_NAMES.map((n, i) => (
@@ -230,7 +212,7 @@ export default async function TimeEntriesPage({ searchParams }) {
                 id="year"
                 name="year"
                 defaultValue={year}
-                className="px-3 py-2 bg-surface-container rounded-lg border border-outline-variant/40 text-body-md text-on-surface focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none"
+                className="px-3.5 py-2.5 bg-surface-container/70 rounded-xl border border-outline-variant/50 text-body-md text-on-surface transition-[background-color,border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-ios)] hover:border-outline-variant focus:bg-surface-container-lowest focus:border-primary focus:ring-4 focus:ring-primary/12 focus:outline-none"
               >
                 <option value="">All years</option>
                 {yearOptions.map((y) => (
@@ -248,7 +230,7 @@ export default async function TimeEntriesPage({ searchParams }) {
                 id="employeeId"
                 name="employeeId"
                 defaultValue={employeeId}
-                className="px-3 py-2 bg-surface-container rounded-lg border border-outline-variant/40 text-body-md text-on-surface focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none"
+                className="px-3.5 py-2.5 bg-surface-container/70 rounded-xl border border-outline-variant/50 text-body-md text-on-surface transition-[background-color,border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-ios)] hover:border-outline-variant focus:bg-surface-container-lowest focus:border-primary focus:ring-4 focus:ring-primary/12 focus:outline-none"
               >
                 <option value="">All employees</option>
                 {filteredEmployees.map((e) => (
@@ -261,7 +243,7 @@ export default async function TimeEntriesPage({ searchParams }) {
             <div className="flex gap-2">
               <button
                 type="submit"
-                className="px-4 py-2 bg-primary text-on-primary rounded-full text-label-md font-semibold tracking-[0.05em] hover:bg-primary-container transition-colors"
+                className="px-4 py-2 bg-primary text-on-primary rounded-full text-label-md font-semibold hover:bg-primary-container transition-colors"
               >
                 Apply
               </button>

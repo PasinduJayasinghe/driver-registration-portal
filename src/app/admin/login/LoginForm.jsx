@@ -10,7 +10,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="w-full mt-2 bg-primary hover:bg-primary-container text-on-primary font-semibold py-3 px-4 rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary shadow-sm uppercase tracking-[0.05em] text-label-md disabled:opacity-60 disabled:cursor-not-allowed"
+      className="w-full mt-2 inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary-container text-on-primary font-semibold py-3.5 px-4 rounded-full transition-[background-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-ios)] focus:outline-none shadow-[var(--shadow-e1)] hover:shadow-[var(--shadow-e2)] text-label-lg active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-none"
     >
       {pending ? "Signing in..." : "Sign In"}
     </button>
@@ -26,7 +26,7 @@ export default function LoginForm({ next }) {
       <div className="flex flex-col gap-1">
         <label
           htmlFor="email"
-          className="text-label-md font-semibold tracking-[0.05em] text-on-surface"
+          className="text-label-md font-semibold text-on-surface"
         >
           Email
         </label>
@@ -44,7 +44,7 @@ export default function LoginForm({ next }) {
       <div className="flex flex-col gap-1">
         <label
           htmlFor="password"
-          className="text-label-md font-semibold tracking-[0.05em] text-on-surface"
+          className="text-label-md font-semibold text-on-surface"
         >
           Password
         </label>

@@ -3,6 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import Modal from "@/components/admin/Modal";
+import Pill from "@/components/ui/Pill";
 import {
   adminUpdateTimeEntryAction,
   adminDeleteTimeEntryAction,
@@ -15,19 +16,10 @@ const JOB_ROLE_LABELS = {
 };
 
 function StatusPill({ status }) {
-  if (status === "OPEN") {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-label-sm bg-amber-100 text-amber-800 border border-amber-200">
-        <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
-        Open
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-label-sm bg-green-100 text-green-800 border border-green-200">
-      <span className="w-1.5 h-1.5 rounded-full bg-green-600" />
-      Closed
-    </span>
+  return status === "OPEN" ? (
+    <Pill tone="warning">Open</Pill>
+  ) : (
+    <Pill tone="positive">Closed</Pill>
   );
 }
 
@@ -66,7 +58,7 @@ function SaveButton() {
     <button
       type="submit"
       disabled={pending}
-      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary text-on-primary text-label-md font-semibold tracking-[0.05em] hover:bg-primary-container transition-colors disabled:opacity-60"
+      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary text-on-primary text-label-md font-semibold hover:bg-primary-container transition-colors disabled:opacity-60"
     >
       <span className="material-symbols-outlined text-[18px]">
         {pending ? "hourglass_top" : "save"}
@@ -109,7 +101,7 @@ function EditForm({ entry }) {
             type="datetime-local"
             required
             defaultValue={toLocalInput(entry.clockIn)}
-            className="px-3 py-2 bg-surface-container rounded-lg border border-outline-variant/40 text-body-md text-on-surface focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none"
+            className="px-3.5 py-2.5 bg-surface-container/70 rounded-xl border border-outline-variant/50 text-body-md text-on-surface transition-[background-color,border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-ios)] hover:border-outline-variant focus:bg-surface-container-lowest focus:border-primary focus:ring-4 focus:ring-primary/12 focus:outline-none"
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -121,7 +113,7 @@ function EditForm({ entry }) {
             name="clockOut"
             type="datetime-local"
             defaultValue={toLocalInput(entry.clockOut)}
-            className="px-3 py-2 bg-surface-container rounded-lg border border-outline-variant/40 text-body-md text-on-surface focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none"
+            className="px-3.5 py-2.5 bg-surface-container/70 rounded-xl border border-outline-variant/50 text-body-md text-on-surface transition-[background-color,border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-ios)] hover:border-outline-variant focus:bg-surface-container-lowest focus:border-primary focus:ring-4 focus:ring-primary/12 focus:outline-none"
           />
         </div>
       </div>
@@ -134,7 +126,7 @@ function EditForm({ entry }) {
           name="notes"
           rows={2}
           defaultValue={entry.notes ?? ""}
-          className="px-3 py-2 bg-surface-container rounded-lg border border-outline-variant/40 text-body-md text-on-surface focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none"
+          className="px-3.5 py-2.5 bg-surface-container/70 rounded-xl border border-outline-variant/50 text-body-md text-on-surface transition-[background-color,border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-ios)] hover:border-outline-variant focus:bg-surface-container-lowest focus:border-primary focus:ring-4 focus:ring-primary/12 focus:outline-none"
         />
       </div>
       <div className="flex items-center justify-end gap-2 pt-2">
@@ -162,7 +154,7 @@ function RowActions({ entry, onEdit }) {
       <button
         type="button"
         onClick={() => onEdit(entry)}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-outline text-on-surface-variant text-label-sm font-semibold tracking-[0.05em] hover:bg-surface-container transition-colors"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-outline text-on-surface-variant text-label-sm font-semibold hover:bg-surface-container transition-colors"
       >
         <span className="material-symbols-outlined text-[16px]">edit</span>
         Edit
@@ -171,7 +163,7 @@ function RowActions({ entry, onEdit }) {
         type="button"
         onClick={handleDelete}
         disabled={pending}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-error text-on-error text-label-sm font-semibold tracking-[0.05em] hover:bg-on-error-container transition-colors disabled:opacity-60"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-error text-on-error text-label-sm font-semibold hover:bg-on-error-container transition-colors disabled:opacity-60"
       >
         <span className="material-symbols-outlined text-[16px]">delete</span>
         Delete
@@ -199,28 +191,28 @@ export default function TimeEntriesTable({ entries }) {
   return (
     <>
       <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
+        <table className="data-table">
           <thead>
-            <tr className="bg-surface-container-low border-b border-outline-variant/30">
-              <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+            <tr>
+              <th>
                 Employee
               </th>
-              <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+              <th>
                 Role
               </th>
-              <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+              <th>
                 In
               </th>
-              <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+              <th>
                 Out
               </th>
-              <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+              <th>
                 Duration
               </th>
-              <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+              <th>
                 Status
               </th>
-              <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider text-right">
+              <th className="num">
                 Actions
               </th>
             </tr>
@@ -235,32 +227,29 @@ export default function TimeEntriesTable({ entries }) {
               return (
                 <tr
                   key={e.id}
-                  className={`border-b border-outline-variant/10 ${
-                    idx % 2 === 1 ? "bg-surface-bright" : ""
-                  }`}
-                >
-                  <td className="py-3 px-6 text-on-surface font-medium">
+                    >
+                  <td className="text-on-surface font-medium">
                     <div>{e.driver.fullName}</div>
                     <div className="text-label-sm text-on-surface-variant font-mono">
                       {e.driver.employeeId}
                     </div>
                   </td>
-                  <td className="py-3 px-6 text-on-surface-variant">
+                  <td className="text-on-surface-variant">
                     {JOB_ROLE_LABELS[e.driver.jobRole] ?? e.driver.jobRole}
                   </td>
-                  <td className="py-3 px-6 text-on-surface-variant">
+                  <td className="text-on-surface-variant">
                     {formatDateTime(e.clockIn)}
                   </td>
-                  <td className="py-3 px-6 text-on-surface-variant">
+                  <td className="text-on-surface-variant">
                     {e.clockOut ? formatDateTime(e.clockOut) : "—"}
                   </td>
-                  <td className="py-3 px-6 text-on-surface font-semibold">
+                  <td className="text-on-surface font-semibold">
                     {formatDuration(dur)}
                   </td>
-                  <td className="py-3 px-6">
+                  <td>
                     <StatusPill status={e.status} />
                   </td>
-                  <td className="py-3 px-6 text-right">
+                  <td className="text-right">
                     <RowActions entry={e} onEdit={setEditing} />
                   </td>
                 </tr>

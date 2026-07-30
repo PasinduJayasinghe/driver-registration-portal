@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { getAuthContext, CLOCKABLE_ROLES } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { officeMonthRange } from "@/lib/time";
 import TimeReportPdf from "@/lib/pdf/TimeReport";
 
 
@@ -24,34 +25,39 @@ export async function GET(request) {
     return new NextResponse("Invalid month/year", { status: 400 });
   }
 
-  const allEmployees = await prisma.driver.findMany({
-    where: { status: "APPROVED" },
+  // The role filter applies whether or not employeeId is given: requesting a
+  // specific employee must not expose records for roles the report never covers.
+  const employees = await prisma.driver.findMany({
+    where: {
+      status: "APPROVED",
+      jobRole: { in: [...CLOCKABLE_ROLES] },
+      ...(employeeId ? { id: employeeId } : {}),
+    },
     orderBy: { fullName: "asc" },
+    select: { id: true, fullName: true, employeeId: true },
   });
-  // The role filter applies in both branches: requesting a specific employeeId
-  // must not expose records for roles the report never covers.
-  const employees = allEmployees
-    .filter((e) => CLOCKABLE_ROLES.has(e.jobRole))
-    .filter((e) => (employeeId ? e.id === employeeId : true))
-    .map((e) => ({
-      id: e.id,
-      fullName: e.fullName,
-      employeeId: e.employeeId,
-    }));
 
   if (employeeId && employees.length === 0) {
     return new NextResponse("Employee not found", { status: 404 });
   }
 
+  // Office-local month bounds; see officeMonthRange in lib/time.js. UTC bounds
+  // would put a late-night shift in a different month than the CSV and the
+  // reports page show it in.
+  const { start, end } = officeMonthRange(year, month);
   const entries = await prisma.timeEntry.findMany({
     where: {
       driverId: { in: employees.map((e) => e.id) },
-      clockIn: {
-        gte: new Date(Date.UTC(year, month - 1, 1)),
-        lt: new Date(Date.UTC(year, month, 1)),
-      },
+      clockIn: { gte: start, lt: end },
     },
     orderBy: { clockIn: "asc" },
+    select: {
+      driverId: true,
+      clockIn: true,
+      clockOut: true,
+      status: true,
+      notes: true,
+    },
   });
 
   // Sanitize for the PDF: convert dates to ISO strings.

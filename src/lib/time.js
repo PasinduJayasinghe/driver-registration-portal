@@ -108,7 +108,10 @@ function officeOffsetMs(date) {
     get("minute"),
     get("second")
   );
-  // Ignore sub-second drift; offsets are whole minutes.
+  // Ignore sub-second drift; offsets are whole minutes. Math.floor is correct
+  // here for both signs: asUtc is built from truncated whole-second parts, so
+  // the subtrahend must round the same direction (down) on either side of the
+  // epoch. Math.trunc would round up for negative times and skew by 1000ms.
   return asUtc - Math.floor(date.getTime() / 1000) * 1000;
 }
 

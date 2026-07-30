@@ -21,7 +21,7 @@ export default function DeleteEmployeeButton({ id, name }) {
       type="button"
       onClick={handleClick}
       disabled={pending}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-error text-on-error text-label-sm font-semibold tracking-[0.05em] hover:bg-on-error-container transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-error text-on-error text-label-sm font-semibold hover:bg-on-error-container transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
     >
       <span className="material-symbols-outlined text-[16px]">
         {pending ? "hourglass_top" : "delete"}

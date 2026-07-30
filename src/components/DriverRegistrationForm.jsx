@@ -24,7 +24,7 @@ function TextField({
     <div className="flex flex-col gap-1">
       <label
         htmlFor={name}
-        className="text-label-md font-semibold tracking-[0.05em] text-on-surface"
+        className="text-label-md font-semibold text-on-surface"
       >
         {label}
         {required ? <span className="text-error ml-1">*</span> : null}
@@ -37,10 +37,10 @@ function TextField({
         placeholder={placeholder}
         aria-invalid={error ? "true" : undefined}
         aria-describedby={error ? `${name}-error` : undefined}
-        className={`px-3 py-2 border rounded-lg bg-surface-container-lowest text-on-surface focus:outline-none focus:ring-2 transition-shadow ${
+        className={`px-3.5 py-2.5 border rounded-xl bg-surface-container/60 text-on-surface focus:outline-none focus:ring-4 focus:bg-surface-container-lowest transition-[background-color,border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-ios)] ${
           error
-            ? "border-error focus:border-error focus:ring-error/20"
-            : "border-outline focus:border-primary focus:ring-primary-container/20"
+            ? "border-error focus:border-error focus:ring-error/15"
+            : "border-outline-variant/50 hover:border-outline-variant focus:border-primary focus:ring-primary/12"
         }`}
         {...inputProps}
       />
@@ -59,9 +59,14 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="w-full mt-stack-lg bg-[#DE5C35] hover:bg-[#c84c26] text-on-primary font-label py-3 px-4 rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#DE5C35] shadow-sm text-label-md tracking-[0.05em] font-semibold uppercase disabled:opacity-60 disabled:cursor-not-allowed"
+      className="w-full mt-stack-lg inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary-container text-on-primary py-3.5 px-4 rounded-full transition-[background-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-ios)] focus:outline-none shadow-[var(--shadow-e1)] hover:shadow-[var(--shadow-e2)] text-label-lg font-semibold active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-none"
     >
-      {pending ? "Submitting..." : "Submit for Approval"}
+      {pending ? (
+        <span className="material-symbols-outlined text-[18px] animate-spin">
+          progress_activity
+        </span>
+      ) : null}
+      {pending ? "Submitting…" : "Submit for Approval"}
     </button>
   );
 }
@@ -80,7 +85,7 @@ export default function DriverRegistrationForm() {
   const showError = !state.ok && state.message;
 
   return (
-    <div className="w-full max-w-lg bg-surface-container-lowest shadow-md rounded-xl p-stack-lg border-t-4 border-primary">
+    <div className="w-full max-w-lg bg-surface-container-lowest rounded-2xl shadow-[var(--shadow-e3)] border border-outline-variant/30 p-stack-lg">
       <div aria-hidden="true" className="flex items-center justify-between mb-stack-lg">
         <div className="flex flex-col items-center">
           <div
@@ -233,7 +238,7 @@ export default function DriverRegistrationForm() {
         <div className="flex flex-col gap-1">
           <label
             htmlFor="licenceType"
-            className="text-label-md font-semibold tracking-[0.05em] text-on-surface"
+            className="text-label-md font-semibold text-on-surface"
           >
             Licence Type
             <span className="text-error ml-1">*</span>
@@ -270,7 +275,7 @@ export default function DriverRegistrationForm() {
       </form>
 
       {showSuccess ? (
-        <div className="mt-stack-lg p-4 bg-surface-container-low border border-primary-fixed rounded-lg shadow-sm flex items-start gap-3">
+        <div className="mt-stack-lg p-4 bg-surface-container-low border border-primary-fixed rounded-xl shadow-[var(--shadow-e1)] flex items-start gap-3">
           <span
             aria-hidden="true"
             className="material-symbols-outlined text-primary filled mt-0.5"
@@ -278,7 +283,7 @@ export default function DriverRegistrationForm() {
             check_circle
           </span>
           <div className="flex-1">
-            <h3 className="text-label-md font-semibold tracking-[0.05em] text-on-surface mb-1">
+            <h3 className="text-label-md font-semibold text-on-surface mb-1">
               Success
             </h3>
             <p className="text-body-md text-on-surface-variant text-sm">
@@ -286,7 +291,7 @@ export default function DriverRegistrationForm() {
             </p>
             {state.employeeId ? (
               <div className="mt-3 p-3 rounded-lg bg-surface-container-lowest border border-outline-variant">
-                <div className="text-label-sm uppercase tracking-[0.05em] text-on-surface-variant">
+                <div className="text-label-sm uppercase tracking-[0.08em] text-on-surface-variant">
                   Your Employee ID
                 </div>
                 <div className="text-headline-md font-bold text-primary mt-0.5 font-mono">
@@ -302,7 +307,7 @@ export default function DriverRegistrationForm() {
       ) : null}
 
       {showError ? (
-        <div className="mt-stack-lg p-4 bg-error-container border border-error/30 rounded-lg shadow-sm flex items-start gap-3">
+        <div className="mt-stack-lg p-4 bg-error-container border border-error/30 rounded-xl shadow-[var(--shadow-e1)] flex items-start gap-3">
           <span
             aria-hidden="true"
             className="material-symbols-outlined text-on-error-container filled mt-0.5"
@@ -310,7 +315,7 @@ export default function DriverRegistrationForm() {
             error
           </span>
           <div>
-            <h3 className="text-label-md font-semibold tracking-[0.05em] text-on-error-container mb-1">
+            <h3 className="text-label-md font-semibold text-on-error-container mb-1">
               We couldn&apos;t submit your details
             </h3>
             <p className="text-body-md text-on-error-container text-sm">

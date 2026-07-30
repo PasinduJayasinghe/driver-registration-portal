@@ -85,7 +85,7 @@ export default async function ReportsPage({ searchParams }) {
 
       <form
         action="/admin/reports"
-        className="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/30 p-4 flex flex-wrap items-end gap-3"
+        className="bg-surface-container-lowest rounded-2xl shadow-[var(--shadow-e1)] border border-outline-variant/30 p-4 flex flex-wrap items-end gap-3"
       >
         <div className="flex flex-col gap-1">
           <label htmlFor="month" className="text-label-sm text-on-surface-variant">
@@ -95,7 +95,7 @@ export default async function ReportsPage({ searchParams }) {
             id="month"
             name="month"
             defaultValue={month}
-            className="px-3 py-2 bg-surface-container rounded-lg border border-outline-variant/40 text-body-md text-on-surface focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none"
+            className="px-3.5 py-2.5 bg-surface-container/70 rounded-xl border border-outline-variant/50 text-body-md text-on-surface transition-[background-color,border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-ios)] hover:border-outline-variant focus:bg-surface-container-lowest focus:border-primary focus:ring-4 focus:ring-primary/12 focus:outline-none"
           >
             {MONTH_NAMES.map((n, i) => (
               <option key={i + 1} value={i + 1}>
@@ -112,7 +112,7 @@ export default async function ReportsPage({ searchParams }) {
             id="year"
             name="year"
             defaultValue={year}
-            className="px-3 py-2 bg-surface-container rounded-lg border border-outline-variant/40 text-body-md text-on-surface focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none"
+            className="px-3.5 py-2.5 bg-surface-container/70 rounded-xl border border-outline-variant/50 text-body-md text-on-surface transition-[background-color,border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-ios)] hover:border-outline-variant focus:bg-surface-container-lowest focus:border-primary focus:ring-4 focus:ring-primary/12 focus:outline-none"
           >
             {yearOptions.map((y) => (
               <option key={y} value={y}>
@@ -129,7 +129,7 @@ export default async function ReportsPage({ searchParams }) {
             id="employeeId"
             name="employeeId"
             defaultValue={employeeId}
-            className="px-3 py-2 bg-surface-container rounded-lg border border-outline-variant/40 text-body-md text-on-surface focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none"
+            className="px-3.5 py-2.5 bg-surface-container/70 rounded-xl border border-outline-variant/50 text-body-md text-on-surface transition-[background-color,border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-ios)] hover:border-outline-variant focus:bg-surface-container-lowest focus:border-primary focus:ring-4 focus:ring-primary/12 focus:outline-none"
           >
             <option value="">All office staff</option>
             {clockableEmployees.map((e) => (
@@ -141,13 +141,13 @@ export default async function ReportsPage({ searchParams }) {
         </div>
         <button
           type="submit"
-          className="px-4 py-2 bg-primary text-on-primary rounded-full text-label-md font-semibold tracking-[0.05em] hover:bg-primary-container transition-colors"
+          className="px-4 py-2 bg-primary text-on-primary rounded-full text-label-md font-semibold hover:bg-primary-container transition-colors"
         >
           Apply
         </button>
       </form>
 
-      <div className="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/30 flex flex-col">
+      <div className="bg-surface-container-lowest rounded-2xl shadow-[var(--shadow-e1)] border border-outline-variant/30 flex flex-col">
         <div className="p-4 border-b border-outline-variant/30">
           <h2 className="text-headline-md text-on-surface">
             Per-employee summary
@@ -159,22 +159,22 @@ export default async function ReportsPage({ searchParams }) {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="data-table">
               <thead>
-                <tr className="bg-surface-container-low border-b border-outline-variant/30">
-                  <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+                <tr>
+                  <th>
                     Employee
                   </th>
-                  <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+                  <th>
                     Shifts
                   </th>
-                  <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+                  <th>
                     Days worked
                   </th>
-                  <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+                  <th>
                     Total
                   </th>
-                  <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+                  <th>
                     Avg / day
                   </th>
                 </tr>
@@ -183,26 +183,23 @@ export default async function ReportsPage({ searchParams }) {
                 {employeeSummaries.map((s, idx) => (
                   <tr
                     key={s.driverId}
-                    className={`border-b border-outline-variant/10 ${
-                      idx % 2 === 1 ? "bg-surface-bright" : ""
-                    }`}
-                  >
-                    <td className="py-3 px-6 text-on-surface font-medium">
+                    >
+                    <td className="text-on-surface font-medium">
                       <div>{s.fullName}</div>
                       <div className="text-label-sm text-on-surface-variant font-mono">
                         {s.employeeId}
                       </div>
                     </td>
-                    <td className="py-3 px-6 text-on-surface-variant">
+                    <td className="text-on-surface-variant">
                       {s.shiftCount}
                     </td>
-                    <td className="py-3 px-6 text-on-surface-variant">
+                    <td className="text-on-surface-variant">
                       {s.daysWorked}
                     </td>
-                    <td className="py-3 px-6 text-on-surface font-semibold">
+                    <td className="text-on-surface font-semibold">
                       {formatDuration(s.totalMs)}
                     </td>
-                    <td className="py-3 px-6 text-on-surface-variant">
+                    <td className="text-on-surface-variant">
                       {s.daysWorked > 0
                         ? formatDuration(Math.round(s.totalMs / s.daysWorked))
                         : "—"}
@@ -215,7 +212,7 @@ export default async function ReportsPage({ searchParams }) {
         )}
       </div>
 
-      <div className="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/30 flex flex-col">
+      <div className="bg-surface-container-lowest rounded-2xl shadow-[var(--shadow-e1)] border border-outline-variant/30 flex flex-col">
         <div className="p-4 border-b border-outline-variant/30">
           <h2 className="text-headline-md text-on-surface">
             Day-by-day — {MONTH_NAMES[month - 1]} {year}
@@ -225,16 +222,16 @@ export default async function ReportsPage({ searchParams }) {
           <div className="p-12 text-center text-on-surface-variant">No data.</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-label-md">
+            <table className="data-table text-label-md">
               <thead>
-                <tr className="bg-surface-container-low border-b border-outline-variant/30">
-                  <th className="py-2 px-3 text-label-sm text-on-surface-variant uppercase tracking-wider sticky left-0 bg-surface-container-low">
+                <tr>
+                  <th className="sticky left-0 z-20">
                     Date
                   </th>
                   {employeeSummaries.map((s) => (
                     <th
                       key={s.driverId}
-                      className="py-2 px-3 text-label-sm text-on-surface-variant uppercase tracking-wider"
+                      
                     >
                       {s.fullName}
                     </th>
@@ -242,14 +239,15 @@ export default async function ReportsPage({ searchParams }) {
                 </tr>
               </thead>
               <tbody>
-                {days.map((d, idx) => (
+                {days.map((d) => (
+                  // Weekend shading is the only row background here. It used to
+                  // compete with zebra striping, which meant a weekend landing
+                  // on an odd row was indistinguishable from a weekday.
                   <tr
                     key={d.ymd}
-                    className={`border-b border-outline-variant/10 ${
-                      idx % 2 === 1 ? "bg-surface-bright" : ""
-                    } ${d.isWeekend ? "bg-surface-container-low" : ""}`}
+                    className={d.isWeekend ? "bg-surface-container-low/60" : ""}
                   >
-                    <td className="py-2 px-3 text-on-surface font-medium sticky left-0 bg-inherit">
+                    <td className="text-on-surface font-medium sticky left-0 bg-inherit">
                       {MONTH_NAMES[month - 1].slice(0, 3)} {d.dayOfMonth}
                       {d.isWeekend ? (
                         <span className="ml-2 text-label-sm text-on-surface-variant">
@@ -263,7 +261,7 @@ export default async function ReportsPage({ searchParams }) {
                         return (
                           <td
                             key={s.driverId}
-                            className="py-2 px-3 text-on-surface-variant/60"
+                            className="text-on-surface-variant/60"
                           >
                             —
                           </td>
@@ -273,7 +271,7 @@ export default async function ReportsPage({ searchParams }) {
                       return (
                         <td
                           key={s.driverId}
-                          className="py-2 px-3 text-on-surface"
+                          className="text-on-surface"
                         >
                           <div className="font-mono text-label-sm">
                             {formatTime(first.clockIn)} –{" "}
@@ -290,13 +288,13 @@ export default async function ReportsPage({ searchParams }) {
                   </tr>
                 ))}
                 <tr className="bg-surface-container-low font-semibold">
-                  <td className="py-3 px-3 text-on-surface sticky left-0 bg-surface-container-low">
+                  <td className="text-on-surface sticky left-0 bg-surface-container-low">
                     Total
                   </td>
                   {employeeSummaries.map((s) => (
                     <td
                       key={s.driverId}
-                      className="py-3 px-3 text-on-surface"
+                      className="text-on-surface"
                     >
                       <div>{formatDuration(s.totalMs)}</div>
                       <div className="text-label-sm font-normal text-on-surface-variant">

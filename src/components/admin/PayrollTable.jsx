@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import PayrollFormModal from "@/components/admin/PayrollFormModal";
+import Pill from "@/components/ui/Pill";
 import { deletePayrollAction, markPayrollPaidAction } from "@/app/admin/(authed)/actions";
 
 function formatLKR(value) {
@@ -10,19 +11,10 @@ function formatLKR(value) {
 }
 
 function StatusPill({ status }) {
-  if (status === "PAID") {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-label-sm bg-green-100 text-green-800 border border-green-200">
-        <span className="w-1.5 h-1.5 rounded-full bg-green-600" />
-        Paid
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-label-sm bg-amber-100 text-amber-800 border border-amber-200">
-      <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
-      Pending
-    </span>
+  return status === "PAID" ? (
+    <Pill tone="positive">Paid</Pill>
+  ) : (
+    <Pill tone="warning">Pending</Pill>
   );
 }
 
@@ -52,7 +44,7 @@ function RowActions({ record, onEdit }) {
           type="button"
           onClick={handleMarkPaid}
           disabled={pending}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-600 text-white text-label-sm font-semibold tracking-[0.05em] hover:bg-green-700 transition-colors disabled:opacity-60"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-600 text-white text-label-sm font-semibold hover:bg-green-700 transition-colors disabled:opacity-60"
         >
           <span className="material-symbols-outlined text-[16px]">
             {pending ? "hourglass_top" : "payments"}
@@ -64,7 +56,7 @@ function RowActions({ record, onEdit }) {
         type="button"
         onClick={() => onEdit(record)}
         disabled={pending}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-outline text-on-surface-variant text-label-sm font-semibold tracking-[0.05em] hover:bg-surface-container transition-colors disabled:opacity-60"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-outline text-on-surface-variant text-label-sm font-semibold hover:bg-surface-container transition-colors disabled:opacity-60"
       >
         <span className="material-symbols-outlined text-[16px]">edit</span>
         Edit
@@ -73,7 +65,7 @@ function RowActions({ record, onEdit }) {
         type="button"
         onClick={handleDelete}
         disabled={pending}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-error text-on-error text-label-sm font-semibold tracking-[0.05em] hover:bg-on-error-container transition-colors disabled:opacity-60"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-error text-on-error text-label-sm font-semibold hover:bg-on-error-container transition-colors disabled:opacity-60"
       >
         <span className="material-symbols-outlined text-[16px]">delete</span>
         Delete
@@ -94,7 +86,7 @@ function EmptyState({ onAdd }) {
       <button
         type="button"
         onClick={onAdd}
-        className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-on-primary text-label-md font-semibold tracking-[0.05em] hover:bg-primary-container transition-colors"
+        className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-on-primary text-label-md font-semibold hover:bg-primary-container transition-colors"
       >
         <span className="material-symbols-outlined text-[18px]">add</span>
         Add Payroll Record
@@ -140,31 +132,31 @@ export default function PayrollTable({ records, employees }) {
   return (
     <>
       <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
+        <table className="data-table">
           <thead>
-            <tr className="bg-surface-container-low border-b border-outline-variant/30">
-              <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+            <tr>
+              <th>
                 Employee
               </th>
-              <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+              <th>
                 Period
               </th>
-              <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+              <th>
                 Basic
               </th>
-              <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+              <th>
                 Allow.
               </th>
-              <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+              <th>
                 Deduct.
               </th>
-              <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+              <th>
                 Net
               </th>
-              <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+              <th>
                 Status
               </th>
-              <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider text-right">
+              <th className="num">
                 Actions
               </th>
             </tr>
@@ -173,32 +165,29 @@ export default function PayrollTable({ records, employees }) {
             {records.map((r, idx) => (
               <tr
                 key={r.id}
-                className={`border-b border-outline-variant/10 hover:bg-surface-container-low/50 transition-colors ${
-                  idx % 2 === 1 ? "bg-surface-bright" : ""
-                }`}
-              >
-                <td className="py-4 px-6 text-on-surface font-medium">
+                    >
+                <td className="text-on-surface font-medium">
                   <div>{r.driver.fullName}</div>
                   <div className="text-label-sm text-on-surface-variant font-mono">
                     {r.driver.employeeId}
                   </div>
                 </td>
-                <td className="py-4 px-6 text-on-surface-variant">
+                <td className="text-on-surface-variant">
                   {r.periodLabel}
                 </td>
-                <td className="py-4 px-6 text-on-surface-variant">
+                <td className="text-on-surface-variant">
                   {formatLKR(r.basicSalary)}
                 </td>
-                <td className="py-4 px-6 text-on-surface-variant">
+                <td className="text-on-surface-variant">
                   {formatLKR(r.allowances)}
                 </td>
-                <td className="py-4 px-6 text-on-surface-variant">
+                <td className="text-on-surface-variant">
                   {formatLKR(r.deductions)}
                 </td>
-                <td className="py-4 px-6 text-on-surface font-semibold">
+                <td className="text-on-surface font-semibold">
                   {formatLKR(r.netSalary)}
                 </td>
-                <td className="py-4 px-6">
+                <td>
                   <div className="flex flex-col gap-1">
                     <StatusPill status={r.status} />
                     {r.status === "PAID" && r.paidDate ? (
@@ -208,7 +197,7 @@ export default function PayrollTable({ records, employees }) {
                     ) : null}
                   </div>
                 </td>
-                <td className="py-4 px-6 text-right">
+                <td className="text-right">
                   <RowActions record={r} onEdit={handleEdit} />
                 </td>
               </tr>

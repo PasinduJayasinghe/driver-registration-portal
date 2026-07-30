@@ -11,7 +11,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary text-on-primary text-label-md font-semibold tracking-[0.05em] hover:bg-primary-container transition-colors disabled:opacity-60"
+      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary text-on-primary text-label-md font-semibold hover:bg-primary-container transition-colors disabled:opacity-60"
     >
       <span className="material-symbols-outlined text-[18px]">
         {pending ? "hourglass_top" : "mail"}
@@ -32,7 +32,7 @@ export default function EmployeeAuthLinkButton({ driver }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary text-primary text-label-sm font-semibold tracking-[0.05em] hover:bg-primary-container/10 transition-colors"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary text-primary text-label-sm font-semibold hover:bg-primary-container/10 transition-colors"
       >
         <span className="material-symbols-outlined text-[16px]">
           {linked ? "refresh" : "key"}
@@ -73,7 +73,7 @@ export default function EmployeeAuthLinkButton({ driver }) {
               required
               defaultValue={driver.email ?? ""}
               placeholder="name@fenixcars.lk"
-              className="w-full px-3 py-2 bg-surface-container rounded-lg border border-outline-variant/40 text-body-md text-on-surface focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none placeholder:text-on-surface-variant/60"
+              className="w-full px-3.5 py-2.5 bg-surface-container/70 rounded-xl border border-outline-variant/50 text-body-md text-on-surface transition-[background-color,border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-ios)] hover:border-outline-variant focus:bg-surface-container-lowest focus:border-primary focus:ring-4 focus:ring-primary/12 focus:outline-none placeholder:text-on-surface-variant/60"
             />
           </div>
           <div className="flex items-center justify-end gap-2 pt-2">

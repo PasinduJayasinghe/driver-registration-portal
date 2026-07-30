@@ -57,10 +57,38 @@
   --color-outline: #8c716a;
   --color-outline-variant: #e0bfb7;
 
-  --radius-DEFAULT: 0.125rem;
-  --radius-lg: 0.25rem;
-  --radius-xl: 0.5rem;
-  --radius-full: 0.75rem;
+  /* Radius ramp. Each step is a real jump so nested corners stay concentric:
+     a control inside a card should read as a smaller version of the same
+     shape, not a different one. */
+  --radius-DEFAULT: 6px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 18px;
+  --radius-3xl: 24px;
+  --radius-full: 9999px;
+
+  /* Motion. Two curves do almost all the work:
+     --ease-ios is the decelerate curve used across iOS — fast to leave, long
+     tail to settle, never overshoots. Use it for anything that moves or fades.
+     --ease-spring overshoots slightly and is only for elements appearing from
+     nothing (modals, popovers), where a little bounce reads as physical. */
+  --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  --duration-fast: 140ms;
+  --duration-base: 220ms;
+  --duration-slow: 380ms;
+
+  /* Elevation. Layered shadows with a tight contact shadow plus a wide ambient
+     one — a single large blur reads flat and synthetic. Tinted with the
+     surface hue rather than pure black so it sits in the palette. */
+  --shadow-e1: 0 1px 2px rgba(25, 28, 29, 0.06), 0 1px 3px rgba(25, 28, 29, 0.04);
+  --shadow-e2: 0 2px 4px rgba(25, 28, 29, 0.05), 0 4px 12px rgba(25, 28, 29, 0.06);
+  --shadow-e3: 0 4px 8px rgba(25, 28, 29, 0.06), 0 12px 28px rgba(25, 28, 29, 0.09);
+  --shadow-e4: 0 8px 16px rgba(25, 28, 29, 0.08), 0 24px 56px rgba(25, 28, 29, 0.14);
 
   --spacing-gutter: 24px;
   --spacing-stack-sm: 8px;
@@ -93,6 +121,18 @@
   --text-headline-md--line-height: 32px;
   --text-headline-md--font-weight: 600;
 
+  /* Title sizes sit between headline and body — used for card and dialog
+     headings. These were referenced across the app but never defined, so the
+     classes silently did nothing and text fell back to inherited size. */
+  --text-title-lg: 20px;
+  --text-title-lg--line-height: 28px;
+  --text-title-lg--letter-spacing: -0.01em;
+  --text-title-lg--font-weight: 600;
+
+  --text-title-md: 17px;
+  --text-title-md--line-height: 24px;
+  --text-title-md--font-weight: 600;
+
   --text-body-lg: 18px;
   --text-body-lg--line-height: 28px;
   --text-body-lg--font-weight: 400;
@@ -101,13 +141,23 @@
   --text-body-md--line-height: 24px;
   --text-body-md--font-weight: 400;
 
+  --text-body-sm: 14px;
+  --text-body-sm--line-height: 21px;
+  --text-body-sm--font-weight: 400;
+
+  --text-label-lg: 15px;
+  --text-label-lg--line-height: 20px;
+  --text-label-lg--letter-spacing: 0.01em;
+  --text-label-lg--font-weight: 600;
+
   --text-label-md: 14px;
   --text-label-md--line-height: 20px;
-  --text-label-md--letter-spacing: 0.05em;
+  --text-label-md--letter-spacing: 0.01em;
   --text-label-md--font-weight: 600;
 
   --text-label-sm: 12px;
   --text-label-sm--line-height: 16px;
+  --text-label-sm--letter-spacing: 0.01em;
   --text-label-sm--font-weight: 500;
 }
 
@@ -117,6 +167,55 @@ body {
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Slightly tighter tracking at body sizes; Hanken Grotesk sets a touch wide
+     by default and the extra density is what makes dense tables feel composed. */
+  letter-spacing: -0.006em;
+  text-rendering: optimizeLegibility;
+}
+
+/* Numbers in tables must align in columns. Without this, proportional figures
+   make times and durations visibly ragged down a column. */
+table,
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* One consistent focus treatment. Only shows for keyboard users, so pointer
+   interaction stays clean while keyboard nav is never ambiguous. */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Motion defaults applied broadly so individual components don't each restate
+   the curve. Only transitions properties that are cheap to animate. */
+a,
+button,
+select,
+input,
+textarea,
+[role="button"] {
+  transition-timing-function: var(--ease-ios);
+  transition-duration: var(--duration-fast);
+}
+
+/* Honour the OS setting. Motion collapses to near-instant rather than being
+   removed outright, so state changes are still legible. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 .material-symbols-outlined {
@@ -140,9 +239,11 @@ body {
   font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24;
 }
 
+/* Thin, low-contrast scrollbars. The thumb only gains contrast on hover so it
+   recedes while reading and is still findable when reached for. */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
@@ -150,10 +251,70 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #e1e3e4;
-  border-radius: 4px;
+  background: rgba(88, 65, 59, 0.18);
+  border-radius: 9999px;
+  /* Transparent border + background-clip insets the thumb from the track edge
+     without needing a separate wrapper. */
+  border: 3px solid transparent;
+  background-clip: content-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #c0c6db;
+  background: rgba(88, 65, 59, 0.32);
+  background-clip: content-box;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(88, 65, 59, 0.22) transparent;
+}
+
+/* Shared data-table treatment.
+   Applied via .data-table on the <table> so the five tables in the app stay
+   visually identical without repeating a dozen utilities at each call site. */
+.data-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+}
+
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--color-surface-container-low);
+  font-size: var(--text-label-sm);
+  line-height: var(--text-label-sm--line-height);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-on-surface-variant) 75%, transparent);
+  padding: 12px 24px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-outline-variant) 45%, transparent);
+  white-space: nowrap;
+}
+
+.data-table tbody td {
+  padding: 14px 24px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-outline-variant) 22%, transparent);
+  vertical-align: middle;
+}
+
+.data-table tbody tr {
+  transition: background-color var(--duration-fast) var(--ease-ios);
+}
+
+.data-table tbody tr:hover {
+  background: color-mix(in srgb, var(--color-surface-container-low) 55%, transparent);
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Numeric columns: right-aligned tabular figures. */
+.data-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }

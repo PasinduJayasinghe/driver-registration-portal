@@ -56,7 +56,7 @@ export default async function ClockPage() {
 
       <ClockButton openEntry={openEntry} />
 
-      <div className="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/30 flex flex-col">
+      <div className="bg-surface-container-lowest rounded-2xl shadow-[var(--shadow-e1)] border border-outline-variant/30 flex flex-col">
         <div className="p-4 border-b border-outline-variant/30">
           <h2 className="text-headline-md text-on-surface">Recent Shifts</h2>
         </div>
@@ -66,19 +66,19 @@ export default async function ClockPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="data-table">
               <thead>
-                <tr className="bg-surface-container-low border-b border-outline-variant/30">
-                  <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+                <tr>
+                  <th>
                     Date
                   </th>
-                  <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+                  <th>
                     In
                   </th>
-                  <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+                  <th>
                     Out
                   </th>
-                  <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+                  <th>
                     Duration
                   </th>
                 </tr>
@@ -87,20 +87,17 @@ export default async function ClockPage() {
                 {recent.map((e, idx) => (
                   <tr
                     key={e.id}
-                    className={`border-b border-outline-variant/10 ${
-                      idx % 2 === 1 ? "bg-surface-bright" : ""
-                    }`}
-                  >
-                    <td className="py-3 px-6 text-on-surface">
+                    >
+                    <td className="text-on-surface">
                       {formatDateTime(e.clockIn).split(",")[0]}
                     </td>
-                    <td className="py-3 px-6 text-on-surface-variant">
+                    <td className="text-on-surface-variant">
                       {formatTime(e.clockIn)}
                     </td>
-                    <td className="py-3 px-6 text-on-surface-variant">
+                    <td className="text-on-surface-variant">
                       {formatTime(e.clockOut)}
                     </td>
-                    <td className="py-3 px-6 text-on-surface font-semibold">
+                    <td className="text-on-surface font-semibold">
                       {formatDuration(durationMs(e.clockIn, e.clockOut))}
                     </td>
                   </tr>

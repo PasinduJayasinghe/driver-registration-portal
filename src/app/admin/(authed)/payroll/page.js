@@ -156,7 +156,7 @@ export default async function PayrollPage({ searchParams }) {
         />
       </div>
 
-      <div className="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/30 flex flex-col">
+      <div className="bg-surface-container-lowest rounded-2xl shadow-[var(--shadow-e1)] border border-outline-variant/30 flex flex-col">
         <div className="px-2 pt-2 border-b border-outline-variant/30 flex flex-wrap gap-1 overflow-x-auto">
           {STATUS_TABS.map((tab) => {
             const isActive = tab.key === activeTab.key;
@@ -171,7 +171,7 @@ export default async function PayrollPage({ searchParams }) {
               <a
                 key={tab.key}
                 href={href}
-                className={`px-4 py-3 text-label-md font-semibold tracking-[0.05em] uppercase border-b-2 transition-colors ${
+                className={`px-4 py-3 text-label-md font-semibold tracking-[0.08em] uppercase border-b-2 transition-colors ${
                   isActive
                     ? "border-primary text-primary"
                     : "border-transparent text-on-surface-variant hover:text-on-surface"
@@ -197,7 +197,7 @@ export default async function PayrollPage({ searchParams }) {
                 id="month"
                 name="month"
                 defaultValue={month}
-                className="px-3 py-2 bg-surface-container rounded-lg border border-outline-variant/40 text-body-md text-on-surface focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none"
+                className="px-3.5 py-2.5 bg-surface-container/70 rounded-xl border border-outline-variant/50 text-body-md text-on-surface transition-[background-color,border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-ios)] hover:border-outline-variant focus:bg-surface-container-lowest focus:border-primary focus:ring-4 focus:ring-primary/12 focus:outline-none"
               >
                 <option value="">All months</option>
                 {MONTH_NAMES.map((n, i) => (
@@ -215,7 +215,7 @@ export default async function PayrollPage({ searchParams }) {
                 id="year"
                 name="year"
                 defaultValue={year}
-                className="px-3 py-2 bg-surface-container rounded-lg border border-outline-variant/40 text-body-md text-on-surface focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none"
+                className="px-3.5 py-2.5 bg-surface-container/70 rounded-xl border border-outline-variant/50 text-body-md text-on-surface transition-[background-color,border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-ios)] hover:border-outline-variant focus:bg-surface-container-lowest focus:border-primary focus:ring-4 focus:ring-primary/12 focus:outline-none"
               >
                 <option value="">All years</option>
                 {yearOptions.map((y) => (
@@ -233,7 +233,7 @@ export default async function PayrollPage({ searchParams }) {
                 id="employeeId"
                 name="employeeId"
                 defaultValue={employeeId}
-                className="px-3 py-2 bg-surface-container rounded-lg border border-outline-variant/40 text-body-md text-on-surface focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none"
+                className="px-3.5 py-2.5 bg-surface-container/70 rounded-xl border border-outline-variant/50 text-body-md text-on-surface transition-[background-color,border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-ios)] hover:border-outline-variant focus:bg-surface-container-lowest focus:border-primary focus:ring-4 focus:ring-primary/12 focus:outline-none"
               >
                 <option value="">All employees</option>
                 {employeeOptions.map((e) => (
@@ -246,7 +246,7 @@ export default async function PayrollPage({ searchParams }) {
             <div className="flex gap-2">
               <button
                 type="submit"
-                className="px-4 py-2 bg-primary text-on-primary rounded-full text-label-md font-semibold tracking-[0.05em] hover:bg-primary-container transition-colors"
+                className="px-4 py-2 bg-primary text-on-primary rounded-full text-label-md font-semibold hover:bg-primary-container transition-colors"
               >
                 Apply
               </button>
@@ -270,7 +270,7 @@ export default async function PayrollPage({ searchParams }) {
 
 function SummaryStat({ label, value, icon, accent }) {
   return (
-    <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm border border-outline-variant/30 flex items-center gap-4 relative overflow-hidden">
+    <div className="bg-surface-container-lowest rounded-2xl p-5 shadow-[var(--shadow-e1)] border border-outline-variant/30 flex items-center gap-4 relative overflow-hidden">
       {accent ? (
         <div className="absolute top-0 left-0 w-full h-1 bg-primary" />
       ) : null}
@@ -284,7 +284,7 @@ function SummaryStat({ label, value, icon, accent }) {
         {icon}
       </span>
       <div className="flex flex-col">
-        <span className="text-label-sm font-semibold tracking-[0.05em] text-on-surface-variant uppercase">
+        <span className="text-label-sm font-semibold tracking-[0.08em] text-on-surface-variant uppercase">
           {label}
         </span>
         <span className="text-title-lg font-bold text-on-surface">{value}</span>

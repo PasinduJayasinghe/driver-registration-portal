@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import DeleteEmployeeButton from "@/components/admin/DeleteEmployeeButton";
 import AddEmployeeButton from "@/components/admin/AddEmployeeButton";
 import EmployeeAuthLinkButton from "@/components/admin/EmployeeAuthLinkButton";
+import Tabs from "@/components/ui/Tabs";
+import Pill from "@/components/ui/Pill";
 import { CLOCKABLE_ROLES } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -21,11 +23,10 @@ const ROLE_TABS = [
 ];
 
 function RoleBadge({ role }) {
-  const label = JOB_ROLE_LABELS[role] ?? role;
   return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-label-sm bg-secondary-container text-on-secondary-container border border-secondary-container/50">
-      {label}
-    </span>
+    <Pill tone={role === "manager" ? "info" : "neutral"} dot={false}>
+      {JOB_ROLE_LABELS[role] ?? role}
+    </Pill>
   );
 }
 
@@ -100,39 +101,19 @@ export default async function EmployeesPage({ searchParams }) {
         </div>
       </div>
 
-      <div className="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/30 flex flex-col">
-        <div className="px-2 pt-2 border-b border-outline-variant/30 flex flex-wrap gap-1 overflow-x-auto">
-          {ROLE_TABS.map((tab) => {
-            const isActive = tab.key === activeTab.key;
-            const count =
-              tab.role === null ? totalApproved : countByRole[tab.role] ?? 0;
-            const href = q
+      <div className="bg-surface-container-lowest rounded-2xl shadow-[var(--shadow-e1)] border border-outline-variant/30 flex flex-col">
+        <Tabs
+          activeKey={activeTab.key}
+          layoutId="employees-tab"
+          tabs={ROLE_TABS.map((tab) => ({
+            key: tab.key,
+            label: tab.label,
+            count: tab.role === null ? totalApproved : countByRole[tab.role] ?? 0,
+            href: q
               ? `/admin/employees?role=${tab.key}&q=${encodeURIComponent(q)}`
-              : `/admin/employees?role=${tab.key}`;
-            return (
-              <a
-                key={tab.key}
-                href={href}
-                className={`px-4 py-3 text-label-md font-semibold tracking-[0.05em] uppercase border-b-2 transition-colors flex items-center gap-2 ${
-                  isActive
-                    ? "border-primary text-primary"
-                    : "border-transparent text-on-surface-variant hover:text-on-surface"
-                }`}
-              >
-                {tab.label}
-                <span
-                  className={`text-label-sm px-2 py-0.5 rounded-full ${
-                    isActive
-                      ? "bg-primary-container/20 text-primary"
-                      : "bg-surface-container text-on-surface-variant"
-                  }`}
-                >
-                  {count}
-                </span>
-              </a>
-            );
-          })}
-        </div>
+              : `/admin/employees?role=${tab.key}`,
+          }))}
+        />
 
         <div className="p-4 border-b border-outline-variant/30">
           <form className="flex items-center gap-2" action="/admin/employees">
@@ -146,12 +127,12 @@ export default async function EmployeesPage({ searchParams }) {
                 name="q"
                 defaultValue={q}
                 placeholder="Search by name, ID, or contact number..."
-                className="w-full pl-10 pr-4 py-2 bg-surface-container rounded-full border-none focus:ring-2 focus:ring-primary text-body-md placeholder:text-on-surface-variant/70 transition-shadow"
+                className="w-full pl-10 pr-4 py-2.5 bg-surface-container/70 rounded-full border border-outline-variant/40 text-body-md text-on-surface placeholder:text-on-surface-variant/60 transition-[background-color,border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-ios)] hover:border-outline-variant focus:bg-surface-container-lowest focus:border-primary focus:ring-4 focus:ring-primary/12 focus:outline-none"
               />
             </div>
             <button
               type="submit"
-              className="px-4 py-2 bg-primary text-on-primary rounded-full text-label-md font-semibold tracking-[0.05em] hover:bg-primary-container transition-colors"
+              className="px-4 py-2 bg-primary text-on-primary rounded-full text-label-md font-semibold hover:bg-primary-container transition-colors"
             >
               Search
             </button>
@@ -174,22 +155,22 @@ export default async function EmployeesPage({ searchParams }) {
                 : "No approved employees yet. Approve a request to see them here."}
             </div>
           ) : (
-            <table className="w-full text-left border-collapse">
+            <table className="data-table">
               <thead>
-                <tr className="bg-surface-container-low border-b border-outline-variant/30">
-                  <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+                <tr>
+                  <th>
                     Employee
                   </th>
-                  <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+                  <th>
                     Contact
                   </th>
-                  <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+                  <th>
                     Role
                   </th>
-                  <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+                  <th>
                     Approved
                   </th>
-                  <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider text-right">
+                  <th className="num">
                     Actions
                   </th>
                 </tr>
@@ -198,11 +179,8 @@ export default async function EmployeesPage({ searchParams }) {
                 {employees.map((e, idx) => (
                   <tr
                     key={e.id}
-                    className={`border-b border-outline-variant/10 hover:bg-surface-container-low/50 transition-colors ${
-                      idx % 2 === 1 ? "bg-surface-bright" : ""
-                    }`}
-                  >
-                    <td className="py-4 px-6 text-on-surface font-medium">
+                    >
+                    <td className="text-on-surface font-medium">
                       <div>{e.fullName}</div>
                       <div className="text-label-sm text-on-surface-variant font-mono">
                         {e.employeeId}
@@ -213,13 +191,13 @@ export default async function EmployeesPage({ searchParams }) {
                         </div>
                       ) : null}
                     </td>
-                    <td className="py-4 px-6 text-on-surface-variant">
+                    <td className="text-on-surface-variant">
                       {e.contactNumber}
                     </td>
-                    <td className="py-4 px-6">
+                    <td>
                       <RoleBadge role={e.jobRole} />
                     </td>
-                    <td className="py-4 px-6 text-on-surface-variant">
+                    <td className="text-on-surface-variant">
                       {e.reviewedAt ? dateFmt.format(e.reviewedAt) : "—"}
                       {e.reviewedByEmail ? (
                         <div className="text-label-sm text-on-surface-variant/80">
@@ -227,7 +205,7 @@ export default async function EmployeesPage({ searchParams }) {
                         </div>
                       ) : null}
                     </td>
-                    <td className="py-4 px-6 text-right">
+                    <td className="text-right">
                       <div className="flex justify-end gap-2">
                         {CLOCKABLE_ROLES.has(e.jobRole) ? (
                           <EmployeeAuthLinkButton driver={e} />

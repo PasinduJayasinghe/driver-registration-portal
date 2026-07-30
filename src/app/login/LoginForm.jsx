@@ -10,7 +10,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-primary text-on-primary text-label-lg font-semibold tracking-[0.05em] hover:bg-primary-container transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+      className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-primary text-on-primary text-label-lg font-semibold hover:bg-primary-container transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
     >
       <span className="material-symbols-outlined text-[20px]">
         {pending ? "hourglass_top" : "login"}
@@ -43,7 +43,7 @@ export default function EmployeeLoginForm() {
           autoComplete="email"
           autoFocus
           placeholder="you@fenixcars.lk"
-          className="w-full px-3 py-2 bg-surface-container rounded-lg border border-outline-variant/40 text-body-md text-on-surface focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none transition-shadow placeholder:text-on-surface-variant/60"
+          className="w-full px-3.5 py-2.5 bg-surface-container/70 rounded-xl border border-outline-variant/50 text-body-md text-on-surface transition-[background-color,border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-ios)] hover:border-outline-variant focus:bg-surface-container-lowest focus:border-primary focus:ring-4 focus:ring-primary/12 focus:outline-none transition-shadow placeholder:text-on-surface-variant/60"
         />
       </div>
 
@@ -58,7 +58,7 @@ export default function EmployeeLoginForm() {
           required
           autoComplete="current-password"
           placeholder="••••••••"
-          className="w-full px-3 py-2 bg-surface-container rounded-lg border border-outline-variant/40 text-body-md text-on-surface focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none transition-shadow placeholder:text-on-surface-variant/60"
+          className="w-full px-3.5 py-2.5 bg-surface-container/70 rounded-xl border border-outline-variant/50 text-body-md text-on-surface transition-[background-color,border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-ios)] hover:border-outline-variant focus:bg-surface-container-lowest focus:border-primary focus:ring-4 focus:ring-primary/12 focus:outline-none transition-shadow placeholder:text-on-surface-variant/60"
         />
       </div>
 

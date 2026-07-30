@@ -22,7 +22,7 @@ export default async function AdminLoginPage({ searchParams }) {
         </p>
       </div>
 
-      <div className="w-full max-w-md bg-surface-container-lowest shadow-md rounded-xl p-stack-lg border-t-4 border-primary">
+      <div className="w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-[var(--shadow-e3)] border border-outline-variant/30 p-stack-lg">
         <LoginForm next={next} />
       </div>
     </main>

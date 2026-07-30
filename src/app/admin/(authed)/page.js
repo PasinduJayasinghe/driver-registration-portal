@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import { LiftCard, Stagger, StaggerItem } from "@/components/ui/Motion";
+import { StatusPill } from "@/components/ui/Pill";
 
 export const dynamic = "force-dynamic";
 
@@ -9,65 +11,48 @@ const JOB_ROLE_LABELS = {
   manager: "Manager",
 };
 
-function StatusPill({ status }) {
-  if (status === "APPROVED") {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-label-sm bg-green-100 text-green-800 border border-green-200">
-        <span className="w-1.5 h-1.5 rounded-full bg-green-600" />
-        Approved
-      </span>
-    );
-  }
-  if (status === "REJECTED") {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-label-sm bg-error-container text-on-error-container border border-error-container/50">
-        <span className="w-1.5 h-1.5 rounded-full bg-error" />
-        Rejected
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-label-sm bg-primary-container/20 text-on-primary-fixed-variant border border-primary-container/30">
-      <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-      Pending
-    </span>
-  );
-}
-
 function StatCard({ label, value, icon, accent, href }) {
   const content = (
     <>
-      {accent ? (
-        <div className="absolute top-0 left-0 w-full h-1 bg-primary" />
-      ) : null}
-      <div className="flex justify-between items-start">
-        <div className="text-label-md font-semibold tracking-[0.05em] text-on-surface-variant uppercase">
+      <div className="flex justify-between items-start gap-3">
+        <div className="text-label-sm font-semibold tracking-[0.08em] text-on-surface-variant/75 uppercase">
           {label}
         </div>
         <span
-          className={`material-symbols-outlined p-2 rounded-lg ${
+          className={`material-symbols-outlined text-[20px] p-1.5 rounded-lg shrink-0 transition-transform duration-[var(--duration-base)] ease-[var(--ease-ios)] group-hover:scale-110 ${
             accent
-              ? "text-primary bg-primary-container/10"
-              : "text-secondary bg-secondary-container/30"
+              ? "text-primary bg-primary-container/12"
+              : "text-secondary bg-secondary-container/40"
           }`}
         >
           {icon}
         </span>
       </div>
-      <div className="text-display-lg font-extrabold text-on-surface mt-2">
+      {/* Tabular figures so the number doesn't reflow as counts change, and
+          tight tracking because large numerals set too loose at this size. */}
+      <div className="text-[40px] leading-[44px] font-extrabold tracking-[-0.03em] text-on-surface tabular">
         {value}
       </div>
+      {href ? (
+        <div className="flex items-center gap-1 text-label-sm font-semibold text-primary opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-[var(--duration-base)] ease-[var(--ease-ios)]">
+          View
+          <span className="material-symbols-outlined text-[14px]">
+            arrow_forward
+          </span>
+        </div>
+      ) : null}
     </>
   );
 
   const className =
-    "bg-surface-container-lowest rounded-xl p-6 shadow-sm border border-outline-variant/30 flex flex-col gap-4 relative overflow-hidden group hover:shadow-md transition-shadow";
+    "bg-surface-container-lowest rounded-2xl p-5 border border-outline-variant/30 flex flex-col gap-3 relative overflow-hidden group shadow-[var(--shadow-e1)] transition-shadow duration-[var(--duration-base)] ease-[var(--ease-ios)]";
 
   if (href) {
     return (
-      <Link href={href} className={className}>
+      <LiftCard as="div" className={`${className} hover:shadow-[var(--shadow-e3)]`}>
+        <Link href={href} className="absolute inset-0 z-10" aria-label={label} />
         {content}
-      </Link>
+      </LiftCard>
     );
   }
   return <div className={className}>{content}</div>;
@@ -120,31 +105,39 @@ export default async function AdminOverviewPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-gutter lg:grid-cols-4">
-        <StatCard
-          label="Pending Registrations"
-          value={pending}
-          icon="pending_actions"
-          accent
-          href="/admin/requests?tab=pending"
-        />
-        <StatCard
-          label="Approved Employees"
-          value={approved}
-          icon="badge"
-          href="/admin/employees"
-        />
-        <StatCard
-          label="Rejected"
-          value={rejected}
-          icon="block"
-          href="/admin/requests?tab=rejected"
-        />
-        <StatCard label="Total Submissions" value={total} icon="groups" />
-      </div>
+      <Stagger className="grid grid-cols-1 md:grid-cols-2 gap-gutter lg:grid-cols-4">
+        <StaggerItem>
+          <StatCard
+            label="Pending Registrations"
+            value={pending}
+            icon="pending_actions"
+            accent
+            href="/admin/requests?tab=pending"
+          />
+        </StaggerItem>
+        <StaggerItem>
+          <StatCard
+            label="Approved Employees"
+            value={approved}
+            icon="badge"
+            href="/admin/employees"
+          />
+        </StaggerItem>
+        <StaggerItem>
+          <StatCard
+            label="Rejected"
+            value={rejected}
+            icon="block"
+            href="/admin/requests?tab=rejected"
+          />
+        </StaggerItem>
+        <StaggerItem>
+          <StatCard label="Total Submissions" value={total} icon="groups" />
+        </StaggerItem>
+      </Stagger>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-gutter">
-        <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm border border-outline-variant/30 flex flex-col gap-3">
+        <div className="bg-surface-container-lowest rounded-2xl p-6 shadow-[var(--shadow-e1)] border border-outline-variant/30 flex flex-col gap-3">
           <div className="flex items-center gap-3">
             <span className="material-symbols-outlined p-2 rounded-lg text-primary bg-primary-container/10">
               schedule
@@ -158,19 +151,19 @@ export default async function AdminOverviewPage() {
           <div className="flex flex-wrap gap-2 mt-1">
             <Link
               href="/admin/time-entries"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary text-on-primary text-label-sm font-semibold tracking-[0.05em] hover:bg-primary-container transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary text-on-primary text-label-sm font-semibold hover:bg-primary-container transition-colors"
             >
               View time entries
             </Link>
             <Link
               href="/admin/reports"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-outline text-on-surface-variant text-label-sm font-semibold tracking-[0.05em] hover:bg-surface-container transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-outline text-on-surface-variant text-label-sm font-semibold hover:bg-surface-container transition-colors"
             >
               Monthly reports
             </Link>
           </div>
         </div>
-        <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm border border-outline-variant/30 flex flex-col gap-3">
+        <div className="bg-surface-container-lowest rounded-2xl p-6 shadow-[var(--shadow-e1)] border border-outline-variant/30 flex flex-col gap-3">
           <div className="flex items-center gap-3">
             <span className="material-symbols-outlined p-2 rounded-lg text-secondary bg-secondary-container/30">
               payments
@@ -184,7 +177,7 @@ export default async function AdminOverviewPage() {
           <div className="flex flex-wrap gap-2 mt-1">
             <Link
               href="/admin/payroll"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary text-on-primary text-label-sm font-semibold tracking-[0.05em] hover:bg-primary-container transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary text-on-primary text-label-sm font-semibold hover:bg-primary-container transition-colors"
             >
               Open payroll
             </Link>
@@ -193,12 +186,12 @@ export default async function AdminOverviewPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-gutter">
-        <div className="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/30 flex flex-col lg:col-span-3">
+        <div className="bg-surface-container-lowest rounded-2xl shadow-[var(--shadow-e1)] border border-outline-variant/30 flex flex-col lg:col-span-3">
           <div className="p-6 border-b border-outline-variant/30 flex justify-between items-center">
             <h2 className="text-headline-md text-on-surface">Recent Activity</h2>
             <Link
               href="/admin/requests"
-              className="text-label-md font-semibold tracking-[0.05em] text-primary hover:underline"
+              className="text-label-md font-semibold text-primary hover:underline"
             >
               View All
             </Link>
@@ -210,19 +203,19 @@ export default async function AdminOverviewPage() {
                 team to get started.
               </div>
             ) : (
-              <table className="w-full text-left border-collapse">
+              <table className="data-table">
                 <thead>
-                  <tr className="bg-surface-container-low border-b border-outline-variant/30">
-                    <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+                  <tr>
+                    <th>
                       Employee
                     </th>
-                    <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+                    <th>
                       Role
                     </th>
-                    <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+                    <th>
                       Date
                     </th>
-                    <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+                    <th>
                       Status
                     </th>
                   </tr>
@@ -231,23 +224,20 @@ export default async function AdminOverviewPage() {
                   {recent.map((driver, idx) => (
                     <tr
                       key={driver.id}
-                      className={`border-b border-outline-variant/10 hover:bg-surface-container-low/50 transition-colors ${
-                        idx % 2 === 1 ? "bg-surface-bright" : ""
-                      }`}
                     >
-                      <td className="py-4 px-6 text-on-surface font-medium">
+                      <td className="text-on-surface font-medium">
                         <div>{driver.fullName}</div>
                         <div className="text-label-sm text-on-surface-variant">
                           {driver.employeeId}
                         </div>
                       </td>
-                      <td className="py-4 px-6 text-on-surface-variant">
+                      <td className="text-on-surface-variant">
                         {JOB_ROLE_LABELS[driver.jobRole] ?? driver.jobRole}
                       </td>
-                      <td className="py-4 px-6 text-on-surface-variant">
+                      <td className="text-on-surface-variant">
                         {dateFmt.format(driver.createdAt)}
                       </td>
-                      <td className="py-4 px-6">
+                      <td>
                         <StatusPill status={driver.status} />
                       </td>
                     </tr>
