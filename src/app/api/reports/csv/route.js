@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthContext, CLOCKABLE_ROLES } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   daysInMonth,
@@ -7,11 +7,10 @@ import {
   formatTime,
   formatDuration,
   groupEntriesByDay,
+  officeMonthRange,
   MONTH_NAMES,
-  ymdInOffice,
 } from "@/lib/time";
 
-const CLOCKABLE = new Set(["sri_lankan_staff", "manager"]);
 
 function csvEscape(value) {
   if (value == null) return "";
@@ -27,12 +26,13 @@ function row(cells) {
 }
 
 export async function GET(request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, isAdmin } = await getAuthContext();
   if (!user) {
     return new NextResponse("Unauthorized", { status: 401 });
+  }
+  // These reports cover every employee, so they are admin-only.
+  if (!isAdmin) {
+    return new NextResponse("Forbidden", { status: 403 });
   }
 
   const { searchParams } = new URL(request.url);
@@ -44,29 +44,35 @@ export async function GET(request) {
     return new NextResponse("Invalid month/year", { status: 400 });
   }
 
-  const employees = await prisma.driver.findMany({
-    where: { status: "APPROVED" },
+  const filteredEmployees = await prisma.driver.findMany({
+    where: {
+      status: "APPROVED",
+      jobRole: { in: [...CLOCKABLE_ROLES] },
+      ...(employeeId ? { id: employeeId } : {}),
+    },
     orderBy: { fullName: "asc" },
+    select: { id: true, fullName: true, employeeId: true },
   });
-  const clockableEmployees = employees.filter((e) => CLOCKABLE.has(e.jobRole));
-  const filteredEmployees = employeeId
-    ? clockableEmployees.filter((e) => e.id === employeeId)
-    : clockableEmployees;
 
   if (employeeId && filteredEmployees.length === 0) {
     return new NextResponse("Employee not found", { status: 404 });
   }
 
-  const where = {
-    driverId: { in: filteredEmployees.map((e) => e.id) },
-    clockIn: {
-      gte: new Date(Date.UTC(year, month - 1, 1)),
-      lt: new Date(Date.UTC(year, month, 1)),
-    },
-  };
+  // Office-local month bounds; see officeMonthRange in lib/time.js.
+  const { start, end } = officeMonthRange(year, month);
   const entries = await prisma.timeEntry.findMany({
-    where,
+    where: {
+      driverId: { in: filteredEmployees.map((e) => e.id) },
+      clockIn: { gte: start, lt: end },
+    },
     orderBy: { clockIn: "asc" },
+    select: {
+      driverId: true,
+      clockIn: true,
+      clockOut: true,
+      status: true,
+      notes: true,
+    },
   });
 
   const byEmployee = new Map();
@@ -86,6 +92,17 @@ export async function GET(request) {
   csv += row(["Generated", new Date().toISOString()]);
   csv += "\n";
 
+  // Group each employee's entries by day once and reuse it for both the summary
+  // and the detail blocks below; grouping is not free and the result is stable.
+  const byDayPerEmployee = new Map(
+    filteredEmployees.map((emp) => [
+      emp.id,
+      groupEntriesByDay(byEmployee.get(emp.id) ?? []),
+    ])
+  );
+  // The calendar is identical for every employee, so build it once.
+  const days = daysInMonth(year, month);
+
   // Per-employee summary
   csv += row(["Summary"]);
   csv += row([
@@ -102,7 +119,7 @@ export async function GET(request) {
       (sum, e) => sum + (durationMs(e.clockIn, e.clockOut) ?? 0),
       0
     );
-    const byDay = groupEntriesByDay(empEntries);
+    const byDay = byDayPerEmployee.get(emp.id);
     const avg = byDay.size > 0 ? totalMs / byDay.size : 0;
     csv += row([
       emp.employeeId,
@@ -129,8 +146,7 @@ export async function GET(request) {
       "Status",
       "Notes",
     ]);
-    const byDay = groupEntriesByDay(empEntries);
-    const days = daysInMonth(year, month);
+    const byDay = byDayPerEmployee.get(emp.id);
     for (const d of days) {
       const cell = byDay.get(d.ymd);
       if (!cell) {

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import DeleteEmployeeButton from "@/components/admin/DeleteEmployeeButton";
 import AddEmployeeButton from "@/components/admin/AddEmployeeButton";
 import EmployeeAuthLinkButton from "@/components/admin/EmployeeAuthLinkButton";
+import { CLOCKABLE_ROLES } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,6 @@ const JOB_ROLE_LABELS = {
   manager: "Manager",
 };
 
-const CLOCKABLE = new Set(["sri_lankan_staff", "manager"]);
 
 const ROLE_TABS = [
   { key: "all", label: "All", role: null },
@@ -53,6 +53,17 @@ export default async function EmployeesPage({ searchParams }) {
     prisma.driver.findMany({
       where,
       orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        fullName: true,
+        employeeId: true,
+        contactNumber: true,
+        email: true,
+        jobRole: true,
+        userId: true,
+        reviewedAt: true,
+        reviewedByEmail: true,
+      },
     }),
     prisma.driver.groupBy({
       by: ["jobRole"],
@@ -218,7 +229,7 @@ export default async function EmployeesPage({ searchParams }) {
                     </td>
                     <td className="py-4 px-6 text-right">
                       <div className="flex justify-end gap-2">
-                        {CLOCKABLE.has(e.jobRole) ? (
+                        {CLOCKABLE_ROLES.has(e.jobRole) ? (
                           <EmployeeAuthLinkButton driver={e} />
                         ) : null}
                         <DeleteEmployeeButton id={e.id} name={e.fullName} />

@@ -1,28 +1,14 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { addHours } from "@/lib/time";
 import { createEmployeeWithAutoId } from "@/lib/employee-id";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
+import { requireAdmin, CLOCKABLE_ROLES } from "@/lib/auth";
 
 const JOB_ROLES = new Set(["driver", "sri_lankan_staff", "manager"]);
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-const CLOCKABLE_ROLES = new Set(["sri_lankan_staff", "manager"]);
-
-async function requireAdminEmail() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error("Not authenticated.");
-  }
-  return user.email ?? user.id;
-}
 
 function fail(message, fieldErrors) {
   return { ok: false, message, fieldErrors: fieldErrors ?? {} };
@@ -33,7 +19,7 @@ function ok(message) {
 }
 
 async function updateStatus(id, status) {
-  const reviewer = await requireAdminEmail();
+  const reviewer = await requireAdmin();
   await prisma.driver.update({
     where: { id },
     data: {
@@ -62,7 +48,7 @@ export async function rejectDriver(formData) {
 export async function resetDriver(formData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
-  await requireAdminEmail();
+  await requireAdmin();
   await prisma.driver.update({
     where: { id },
     data: { status: "PENDING", reviewedAt: null, reviewedByEmail: null },
@@ -75,7 +61,7 @@ export async function resetDriver(formData) {
 export async function deleteDriver(formData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
-  await requireAdminEmail();
+  await requireAdmin();
   await prisma.driver.delete({ where: { id } });
   revalidatePath("/admin");
   revalidatePath("/admin/requests");
@@ -83,7 +69,7 @@ export async function deleteDriver(formData) {
 }
 
 export async function createEmployeeAction(_prevState, formData) {
-  await requireAdminEmail();
+  const reviewer = await requireAdmin();
 
   const fullName = String(formData.get("fullName") ?? "").trim();
   const contactNumber = String(formData.get("contactNumber") ?? "").trim();
@@ -116,7 +102,7 @@ export async function createEmployeeAction(_prevState, formData) {
     address: address || null,
     status: "APPROVED",
     reviewedAt: new Date(),
-    reviewedByEmail: await requireAdminEmail().catch(() => null),
+    reviewedByEmail: reviewer,
   });
 
   if (!result.ok) {
@@ -138,7 +124,7 @@ function parseMoney(value) {
 }
 
 export async function createPayrollAction(_prevState, formData) {
-  await requireAdminEmail();
+  await requireAdmin();
 
   const driverId = String(formData.get("driverId") ?? "").trim();
   const periodMonth = Number(formData.get("periodMonth") ?? "");
@@ -210,7 +196,7 @@ export async function createPayrollAction(_prevState, formData) {
 }
 
 export async function updatePayrollAction(_prevState, formData) {
-  await requireAdminEmail();
+  await requireAdmin();
 
   const id = String(formData.get("id") ?? "").trim();
   if (!id) return fail("Missing record id.");
@@ -278,7 +264,7 @@ export async function updatePayrollAction(_prevState, formData) {
 }
 
 export async function deletePayrollAction(formData) {
-  await requireAdminEmail();
+  await requireAdmin();
   const id = String(formData.get("id") ?? "").trim();
   if (!id) return;
   await prisma.payroll.delete({ where: { id } });
@@ -286,7 +272,7 @@ export async function deletePayrollAction(formData) {
 }
 
 export async function markPayrollPaidAction(formData) {
-  await requireAdminEmail();
+  await requireAdmin();
   const id = String(formData.get("id") ?? "").trim();
   if (!id) return;
   await prisma.payroll.update({
@@ -299,7 +285,7 @@ export async function markPayrollPaidAction(formData) {
 // ----- Time entries (admin) -----
 
 export async function adminUpdateTimeEntryAction(_prevState, formData) {
-  await requireAdminEmail();
+  await requireAdmin();
   const id = String(formData.get("id") ?? "").trim();
   if (!id) return fail("Missing entry id.");
 
@@ -339,7 +325,7 @@ export async function adminUpdateTimeEntryAction(_prevState, formData) {
 }
 
 export async function adminDeleteTimeEntryAction(formData) {
-  await requireAdminEmail();
+  await requireAdmin();
   const id = String(formData.get("id") ?? "").trim();
   if (!id) return;
   await prisma.timeEntry.delete({ where: { id } });
@@ -363,7 +349,7 @@ function getSupabaseAdmin() {
 }
 
 export async function adminSetupEmployeeLoginAction(_prevState, formData) {
-  await requireAdminEmail();
+  await requireAdmin();
   const driverId = String(formData.get("driverId") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
   if (!driverId) return fail("Missing employee id.");

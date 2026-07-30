@@ -142,6 +142,22 @@ export default async function RequestsPage({ searchParams }) {
     prisma.driver.findMany({
       where,
       orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        fullName: true,
+        employeeId: true,
+        contactNumber: true,
+        email: true,
+        address: true,
+        jobRole: true,
+        status: true,
+        createdAt: true,
+        reviewedByEmail: true,
+        nationality: true,
+        yearsOfExperience: true,
+        licenceNumber: true,
+        licenceType: true,
+      },
     }),
     prisma.driver.groupBy({
       by: ["status"],

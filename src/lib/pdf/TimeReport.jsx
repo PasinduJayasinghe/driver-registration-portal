@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
   },
 });
 
-function SummaryTable({ employees, entriesByEmployee }) {
+function SummaryTable({ employees, statsByEmployee }) {
   return (
     <View style={styles.table}>
       <View style={styles.tableHeader}>
@@ -118,12 +118,7 @@ function SummaryTable({ employees, entriesByEmployee }) {
         </Text>
       </View>
       {employees.map((emp) => {
-        const empEntries = entriesByEmployee.get(emp.id) ?? [];
-        const totalMs = empEntries.reduce(
-          (sum, e) => sum + (durationMs(e.clockIn, e.clockOut) ?? 0),
-          0
-        );
-        const byDay = groupEntriesByDay(empEntries);
+        const { shiftCount, totalMs, byDay } = statsByEmployee.get(emp.id);
         const avg = byDay.size > 0 ? totalMs / byDay.size : 0;
         return (
           <View key={emp.id} style={styles.summaryRow}>
@@ -132,7 +127,7 @@ function SummaryTable({ employees, entriesByEmployee }) {
             </Text>
             <Text style={[styles.cell, { width: "30%" }]}>{emp.fullName}</Text>
             <Text style={[styles.cell, { width: "12%", textAlign: "right" }]}>
-              {empEntries.length}
+              {shiftCount}
             </Text>
             <Text style={[styles.cell, { width: "14%", textAlign: "right" }]}>
               {byDay.size}
@@ -150,7 +145,7 @@ function SummaryTable({ employees, entriesByEmployee }) {
   );
 }
 
-function DailyTable({ employees, entriesByEmployee, year, month }) {
+function DailyTable({ employees, statsByEmployee, year, month }) {
   const days = daysInMonth(year, month);
   const nameCol = "16%";
   const dayCol = `${Math.max(8, Math.floor(84 / Math.max(1, employees.length)))}%`;
@@ -169,9 +164,7 @@ function DailyTable({ employees, entriesByEmployee, year, month }) {
       </View>
       {days.map((d) => {
         const cells = employees.map((emp) => {
-          const empEntries = entriesByEmployee.get(emp.id) ?? [];
-          const byDay = groupEntriesByDay(empEntries);
-          const cell = byDay.get(d.ymd);
+          const cell = statsByEmployee.get(emp.id).byDay.get(d.ymd);
           if (!cell) return "—";
           const first = cell.entries[0];
           return `${formatTime(first.clockIn)}${
@@ -197,12 +190,7 @@ function DailyTable({ employees, entriesByEmployee, year, month }) {
       <View style={styles.totalRow}>
         <Text style={[styles.cell, { width: nameCol }]}>Total</Text>
         {employees.map((emp) => {
-          const empEntries = entriesByEmployee.get(emp.id) ?? [];
-          const totalMs = empEntries.reduce(
-            (sum, e) => sum + (durationMs(e.clockIn, e.clockOut) ?? 0),
-            0
-          );
-          const byDay = groupEntriesByDay(empEntries);
+          const { totalMs, byDay } = statsByEmployee.get(emp.id);
           return (
             <Text key={emp.id} style={[styles.cell, { width: dayCol }]}>
               {formatDuration(totalMs)} ({byDay.size}d)
@@ -221,6 +209,26 @@ export default function TimeReportPdf({ employees, entries, year, month }) {
     const arr = entriesByEmployee.get(e.driverId);
     if (arr) arr.push(e);
   }
+
+  // Derive each employee's totals and day grouping exactly once. These tables
+  // previously rebuilt the same Maps inside their render loops — for a 31-day
+  // month with 10 employees that was 300+ redundant groupings per document.
+  const statsByEmployee = new Map(
+    employees.map((emp) => {
+      const empEntries = entriesByEmployee.get(emp.id) ?? [];
+      return [
+        emp.id,
+        {
+          shiftCount: empEntries.length,
+          totalMs: empEntries.reduce(
+            (sum, e) => sum + (durationMs(e.clockIn, e.clockOut) ?? 0),
+            0
+          ),
+          byDay: groupEntriesByDay(empEntries),
+        },
+      ];
+    })
+  );
 
   return (
     <Document>
@@ -242,7 +250,7 @@ export default function TimeReportPdf({ employees, entries, year, month }) {
         ) : (
           <SummaryTable
             employees={employees}
-            entriesByEmployee={entriesByEmployee}
+            statsByEmployee={statsByEmployee}
           />
         )}
 
@@ -254,7 +262,7 @@ export default function TimeReportPdf({ employees, entries, year, month }) {
         ) : (
           <DailyTable
             employees={employees}
-            entriesByEmployee={entriesByEmployee}
+            statsByEmployee={statsByEmployee}
             year={year}
             month={month}
           />

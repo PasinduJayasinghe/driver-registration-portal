@@ -58,18 +58,21 @@ export default async function PayrollPage({ searchParams }) {
     prisma.payroll.findMany({
       where,
       orderBy: [{ periodYear: "desc" }, { periodMonth: "desc" }, { createdAt: "desc" }],
-      include: { driver: true },
+      include: {
+        driver: { select: { id: true, fullName: true, employeeId: true } },
+      },
     }),
     prisma.driver.findMany({
       where: { status: "APPROVED" },
       orderBy: { fullName: "asc" },
+      select: { id: true, fullName: true, employeeId: true },
     }),
+    // Must use the same `where` as the table above, otherwise the summary tiles
+    // contradict the rows on screen whenever a filter is active.
     prisma.payroll.aggregate({
       _sum: { netSalary: true },
       _count: { _all: true },
-      where: {
-        ...(activeTab.status ? { status: activeTab.status } : {}),
-      },
+      where,
     }),
   ]);
 

@@ -1,10 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import TimeEntriesTable from "@/components/admin/TimeEntriesTable";
-import { MONTH_NAMES } from "@/lib/time";
+import { MONTH_NAMES, officeMonthRange } from "@/lib/time";
+import { CLOCKABLE_ROLES } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-const CLOCKABLE = new Set(["sri_lankan_staff", "manager"]);
 
 const STATUS_TABS = [
   { key: "all", label: "All", status: null },
@@ -12,13 +12,15 @@ const STATUS_TABS = [
   { key: "closed", label: "Closed", status: "CLOSED" },
 ];
 
-function buildHref({ status, employeeId, month, year, scope }) {
+function buildHref({ status, employeeId, month, year, scope, page }) {
   const sp = new URLSearchParams();
   if (status) sp.set("status", status);
   if (employeeId) sp.set("employeeId", employeeId);
   if (month) sp.set("month", month);
   if (year) sp.set("year", year);
   if (scope) sp.set("scope", scope);
+  // Page 1 is the default, so it stays out of the URL.
+  if (page && page > 1) sp.set("page", String(page));
   const qs = sp.toString();
   return qs ? `/admin/time-entries?${qs}` : "/admin/time-entries";
 }
@@ -36,61 +38,94 @@ export default async function TimeEntriesPage({ searchParams }) {
   const monthNum = month ? Number(month) : null;
   const yearNum = year ? Number(year) : null;
 
-  const dateFrom = monthNum && yearNum
-    ? new Date(Date.UTC(yearNum, monthNum - 1, 1))
-    : null;
-  const dateTo = monthNum && yearNum
-    ? new Date(Date.UTC(yearNum, monthNum, 1))
-    : null;
+  // Office-local month bounds so entries near midnight on the 1st/last day of
+  // the month are filtered into the month the UI shows them in.
+  const range =
+    monthNum && yearNum ? officeMonthRange(yearNum, monthNum) : null;
 
-  const where = {
-    ...(activeTab.status ? { status: activeTab.status } : {}),
+  const page = Math.max(1, Number(params.page) || 1);
+  const PAGE_SIZE = 100;
+
+  // Every filter except the status tab. Counts are derived from this so each
+  // tab shows its true total rather than a count of the current tab's rows.
+  const baseWhere = {
     ...(employeeId ? { driverId: employeeId } : {}),
-    ...(dateFrom && dateTo
-      ? { clockIn: { gte: dateFrom, lt: dateTo } }
+    ...(range ? { clockIn: { gte: range.start, lt: range.end } } : {}),
+    // Scope is applied in the query instead of discarding rows after the fact,
+    // which previously let the `take` limit be consumed by filtered-out rows.
+    ...(scope === "office"
+      ? { driver: { jobRole: { in: [...CLOCKABLE_ROLES] } } }
       : {}),
   };
 
-  const [entries, employees] = await Promise.all([
+  const where = {
+    ...baseWhere,
+    ...(activeTab.status ? { status: activeTab.status } : {}),
+  };
+
+  const [entries, employees, statusCounts, totalMatching] = await Promise.all([
     prisma.timeEntry.findMany({
       where,
       orderBy: { clockIn: "desc" },
-      include: { driver: true },
-      take: 500,
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      select: {
+        id: true,
+        clockIn: true,
+        clockOut: true,
+        status: true,
+        notes: true,
+        driver: {
+          select: {
+            id: true,
+            fullName: true,
+            employeeId: true,
+            jobRole: true,
+          },
+        },
+      },
     }),
     prisma.driver.findMany({
-      where: { status: "APPROVED" },
+      where: {
+        status: "APPROVED",
+        ...(scope === "office"
+          ? { jobRole: { in: [...CLOCKABLE_ROLES] } }
+          : {}),
+      },
       orderBy: { fullName: "asc" },
+      select: { id: true, fullName: true, employeeId: true },
     }),
+    // Aggregate in the database so counts stay correct beyond one page.
+    prisma.timeEntry.groupBy({
+      by: ["status"],
+      where: baseWhere,
+      _count: { _all: true },
+    }),
+    prisma.timeEntry.count({ where }),
   ]);
 
-  const filteredEmployees = scope === "office"
-    ? employees.filter((e) => CLOCKABLE.has(e.jobRole))
-    : employees;
+  const filteredEmployees = employees;
 
-  const serialized = entries
-    .filter((e) =>
-      scope === "office" ? CLOCKABLE.has(e.driver.jobRole) : true
-    )
-    .map((e) => ({
-      id: e.id,
-      clockIn: e.clockIn.toISOString(),
-      clockOut: e.clockOut ? e.clockOut.toISOString() : null,
-      status: e.status,
-      notes: e.notes,
-      driver: {
-        id: e.driver.id,
-        fullName: e.driver.fullName,
-        employeeId: e.driver.employeeId,
-        jobRole: e.driver.jobRole,
-      },
-    }));
+  const serialized = entries.map((e) => ({
+    id: e.id,
+    clockIn: e.clockIn.toISOString(),
+    clockOut: e.clockOut ? e.clockOut.toISOString() : null,
+    status: e.status,
+    notes: e.notes,
+    driver: e.driver,
+  }));
 
+  const openCount =
+    statusCounts.find((c) => c.status === "OPEN")?._count?._all ?? 0;
+  const closedCount =
+    statusCounts.find((c) => c.status === "CLOSED")?._count?._all ?? 0;
   const counts = {
-    all: serialized.length,
-    open: serialized.filter((e) => e.status === "OPEN").length,
-    closed: serialized.filter((e) => e.status === "CLOSED").length,
+    all: openCount + closedCount,
+    open: openCount,
+    closed: closedCount,
   };
+
+  const totalPages = Math.max(1, Math.ceil(totalMatching / PAGE_SIZE));
 
   const currentYear = new Date().getFullYear();
   const yearOptions = [];
@@ -243,6 +278,46 @@ export default async function TimeEntriesPage({ searchParams }) {
         </div>
 
         <TimeEntriesTable entries={serialized} />
+
+        {totalPages > 1 ? (
+          <div className="p-4 border-t border-outline-variant/30 flex items-center justify-between gap-3">
+            <span className="text-label-sm text-on-surface-variant">
+              Page {page} of {totalPages} · {totalMatching} entries
+            </span>
+            <div className="flex items-center gap-2">
+              {page > 1 ? (
+                <a
+                  href={buildHref({
+                    status: activeTab.key === "all" ? null : activeTab.key,
+                    employeeId,
+                    month,
+                    year,
+                    scope,
+                    page: page - 1,
+                  })}
+                  className="px-3 py-1.5 rounded-full border border-outline text-on-surface-variant text-label-sm font-semibold hover:bg-surface-container transition-colors"
+                >
+                  Previous
+                </a>
+              ) : null}
+              {page < totalPages ? (
+                <a
+                  href={buildHref({
+                    status: activeTab.key === "all" ? null : activeTab.key,
+                    employeeId,
+                    month,
+                    year,
+                    scope,
+                    page: page + 1,
+                  })}
+                  className="px-3 py-1.5 rounded-full border border-outline text-on-surface-variant text-label-sm font-semibold hover:bg-surface-container transition-colors"
+                >
+                  Next
+                </a>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
       </div>
     </>
   );

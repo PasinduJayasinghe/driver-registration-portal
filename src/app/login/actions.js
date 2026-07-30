@@ -4,8 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
-
-const CLOCKABLE_ROLES = new Set(["sri_lankan_staff", "manager"]);
+import { CLOCKABLE_ROLES } from "@/lib/auth";
 
 function fail(message) {
   return { ok: false, message };

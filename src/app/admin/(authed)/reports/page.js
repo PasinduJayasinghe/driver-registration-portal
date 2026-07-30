@@ -1,18 +1,18 @@
 import { prisma } from "@/lib/prisma";
 import DownloadButtons from "@/components/admin/DownloadButtons";
+import { CLOCKABLE_ROLES } from "@/lib/auth";
 import {
   daysInMonth,
   formatTime,
   formatDuration,
   durationMs,
   groupEntriesByDay,
+  officeMonthRange,
   MONTH_NAMES,
-  ymdInOffice,
 } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
-const CLOCKABLE = new Set(["sri_lankan_staff", "manager"]);
 
 export default async function ReportsPage({ searchParams }) {
   const params = (await searchParams) ?? {};
@@ -21,46 +21,44 @@ export default async function ReportsPage({ searchParams }) {
   const year = Number(params.year) || now.getFullYear();
   const employeeId = typeof params.employeeId === "string" ? params.employeeId : "";
 
-  const employees = await prisma.driver.findMany({
-    where: { status: "APPROVED" },
-    orderBy: { fullName: "asc" },
-  });
-  const clockableEmployees = employees.filter((e) => CLOCKABLE.has(e.jobRole));
-
-  const where = {
-    ...(employeeId ? { driverId: employeeId } : {}),
-    clockIn: {
-      gte: new Date(Date.UTC(year, month - 1, 1)),
-      lt: new Date(Date.UTC(year, month, 1)),
+  // Filter by role in the query rather than fetching every approved employee
+  // and discarding most of them in JS.
+  const clockableEmployees = await prisma.driver.findMany({
+    where: {
+      status: "APPROVED",
+      jobRole: { in: [...CLOCKABLE_ROLES] },
+      ...(employeeId ? { id: employeeId } : {}),
     },
-  };
-  const entries = await prisma.timeEntry.findMany({
-    where,
-    include: { driver: true },
-    orderBy: { clockIn: "asc" },
+    orderBy: { fullName: "asc" },
+    select: { id: true, fullName: true, employeeId: true },
   });
 
-  const filteredEntries = employeeId
-    ? entries
-    : entries.filter((e) => CLOCKABLE.has(e.driver.jobRole));
+  // Month bounds must be office-local: entries are grouped into days in
+  // Asia/Colombo, so UTC bounds would pull the wrong shifts in at each edge.
+  const { start: monthStart, end: monthEnd } = officeMonthRange(year, month);
 
-  const employeeSummaries = buildSummaries(filteredEntries, clockableEmployees);
+  const entries = await prisma.timeEntry.findMany({
+    where: {
+      driverId: { in: clockableEmployees.map((e) => e.id) },
+      clockIn: { gte: monthStart, lt: monthEnd },
+    },
+    orderBy: { clockIn: "asc" },
+    select: {
+      driverId: true,
+      clockIn: true,
+      clockOut: true,
+      status: true,
+      notes: true,
+    },
+  });
+
+  const employeeSummaries = buildSummaries(entries, clockableEmployees);
   const days = daysInMonth(year, month);
 
-  const monthStart = Date.UTC(year, month - 1, 1);
-  const monthEnd = Date.UTC(year, month, 1);
   const yearOptions = [];
   for (let y = now.getFullYear() + 1; y >= now.getFullYear() - 4; y -= 1) {
     yearOptions.push(y);
   }
-
-  const scopeHref = (() => {
-    const sp = new URLSearchParams();
-    sp.set("month", String(month));
-    sp.set("year", String(year));
-    if (employeeId) sp.set("employeeId", employeeId);
-    return `/admin/reports?${sp.toString()}`;
-  })();
 
   return (
     <>

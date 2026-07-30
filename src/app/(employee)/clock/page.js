@@ -20,7 +20,7 @@ export default async function ClockPage() {
   });
   if (!driver) redirect("/login");
 
-  await autoCloseStaleEntries(driver.id);
+  await autoCloseStaleEntries();
 
   const [openEntry, recent] = await Promise.all([
     prisma.timeEntry.findFirst({

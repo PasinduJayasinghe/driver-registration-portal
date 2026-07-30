@@ -1,15 +1,17 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
-import { formatTime, formatDate, formatDuration, durationMs, MONTH_NAMES } from "@/lib/time";
+import {
+  formatTime,
+  formatDate,
+  formatDuration,
+  durationMs,
+  officeMonthRange,
+  ymdInOffice,
+  MONTH_NAMES,
+} from "@/lib/time";
 
 export const dynamic = "force-dynamic";
-
-const JOB_ROLE_LABELS = {
-  driver: "Driver",
-  sri_lankan_staff: "Sri Lankan Staff",
-  manager: "Manager",
-};
 
 export default async function HistoryPage({ searchParams }) {
   const supabase = await createClient();
@@ -29,22 +31,28 @@ export default async function HistoryPage({ searchParams }) {
   const month = Number(params.month) || now.getMonth() + 1;
   const year = Number(params.year) || now.getFullYear();
 
-  const monthStart = new Date(Date.UTC(year, month - 1, 1));
-  const monthEnd = new Date(Date.UTC(year, month, 1));
+  // Office-local bounds so a late-night shift lands in the month it's shown in.
+  const { start, end } = officeMonthRange(year, month);
 
   const entries = await prisma.timeEntry.findMany({
     where: {
       driverId: driver.id,
-      clockIn: { gte: monthStart, lt: monthEnd },
+      clockIn: { gte: start, lt: end },
     },
     orderBy: { clockIn: "desc" },
+    select: {
+      id: true,
+      clockIn: true,
+      clockOut: true,
+      notes: true,
+    },
   });
 
   const totalMs = entries.reduce(
     (sum, e) => sum + (durationMs(e.clockIn, e.clockOut) ?? 0),
     0
   );
-  const daysWorked = new Set(entries.map((e) => formatDate(e.clockIn))).size;
+  const daysWorked = new Set(entries.map((e) => ymdInOffice(e.clockIn))).size;
 
   return (
     <>

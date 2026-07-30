@@ -74,16 +74,34 @@ function StatCard({ label, value, icon, accent, href }) {
 }
 
 export default async function AdminOverviewPage() {
-  const [pending, approved, rejected, total, recent] = await Promise.all([
-    prisma.driver.count({ where: { status: "PENDING" } }),
-    prisma.driver.count({ where: { status: "APPROVED" } }),
-    prisma.driver.count({ where: { status: "REJECTED" } }),
-    prisma.driver.count(),
+  // One grouped query instead of four separate COUNT(*) round-trips.
+  const [statusCounts, recent] = await Promise.all([
+    prisma.driver.groupBy({
+      by: ["status"],
+      _count: { _all: true },
+    }),
     prisma.driver.findMany({
       orderBy: { createdAt: "desc" },
       take: 5,
+      select: {
+        id: true,
+        fullName: true,
+        employeeId: true,
+        jobRole: true,
+        status: true,
+        createdAt: true,
+      },
     }),
   ]);
+
+  const countByStatus = statusCounts.reduce((acc, c) => {
+    acc[c.status] = c._count._all;
+    return acc;
+  }, {});
+  const pending = countByStatus.PENDING ?? 0;
+  const approved = countByStatus.APPROVED ?? 0;
+  const rejected = countByStatus.REJECTED ?? 0;
+  const total = pending + approved + rejected;
 
   const dateFmt = new Intl.DateTimeFormat("en-US", {
     month: "short",

@@ -1,18 +1,18 @@
 import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthContext, CLOCKABLE_ROLES } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import TimeReportPdf from "@/lib/pdf/TimeReport";
 
-const CLOCKABLE = new Set(["sri_lankan_staff", "manager"]);
 
 export async function GET(request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, isAdmin } = await getAuthContext();
   if (!user) {
     return new NextResponse("Unauthorized", { status: 401 });
+  }
+  // These reports cover every employee, so they are admin-only.
+  if (!isAdmin) {
+    return new NextResponse("Forbidden", { status: 403 });
   }
 
   const { searchParams } = new URL(request.url);
@@ -28,15 +28,16 @@ export async function GET(request) {
     where: { status: "APPROVED" },
     orderBy: { fullName: "asc" },
   });
-  const employees = (
-    employeeId
-      ? allEmployees.filter((e) => e.id === employeeId)
-      : allEmployees.filter((e) => CLOCKABLE.has(e.jobRole))
-  ).map((e) => ({
-    id: e.id,
-    fullName: e.fullName,
-    employeeId: e.employeeId,
-  }));
+  // The role filter applies in both branches: requesting a specific employeeId
+  // must not expose records for roles the report never covers.
+  const employees = allEmployees
+    .filter((e) => CLOCKABLE_ROLES.has(e.jobRole))
+    .filter((e) => (employeeId ? e.id === employeeId : true))
+    .map((e) => ({
+      id: e.id,
+      fullName: e.fullName,
+      employeeId: e.employeeId,
+    }));
 
   if (employeeId && employees.length === 0) {
     return new NextResponse("Employee not found", { status: 404 });

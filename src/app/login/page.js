@@ -1,24 +1,18 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/prisma";
+import { getAuthContext, CLOCKABLE_ROLES } from "@/lib/auth";
 import EmployeeLoginForm from "./LoginForm";
-
-const CLOCKABLE_ROLES = new Set(["sri_lankan_staff", "manager"]);
 
 export const dynamic = "force-dynamic";
 
 export default async function EmployeeLoginPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, driver, isAdmin } = await getAuthContext();
 
   if (user) {
-    const driver = await prisma.driver.findUnique({
-      where: { userId: user.id },
-      select: { jobRole: true, status: true },
-    });
+    // An admin who lands here is already signed in — send them to their portal.
+    if (isAdmin) {
+      redirect("/admin");
+    }
     if (
       driver &&
       driver.status === "APPROVED" &&

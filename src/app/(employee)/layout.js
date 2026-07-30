@@ -1,32 +1,20 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/prisma";
+import { getAuthContext, CLOCKABLE_ROLES } from "@/lib/auth";
 import EmployeeNav from "@/components/employee/EmployeeNav";
-
-const CLOCKABLE_ROLES = new Set(["sri_lankan_staff", "manager"]);
 
 export const dynamic = "force-dynamic";
 
 export default async function EmployeeLayout({ children }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, driver, isAdmin } = await getAuthContext();
 
   if (!user) {
     redirect("/login");
   }
 
-  const driver = await prisma.driver.findUnique({
-    where: { userId: user.id },
-    select: {
-      id: true,
-      fullName: true,
-      employeeId: true,
-      jobRole: true,
-      status: true,
-    },
-  });
+  // Admin accounts have no Driver row, so there is nothing to clock.
+  if (isAdmin) {
+    redirect("/admin");
+  }
 
   if (!driver) {
     redirect("/login?error=not_an_employee");

@@ -1,16 +1,20 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthContext } from "@/lib/auth";
 import SideNav from "@/components/admin/SideNav";
 import TopNav from "@/components/admin/TopNav";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminLayout({ children }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, isAdmin } = await getAuthContext();
 
   if (!user) {
     redirect("/admin/login");
+  }
+
+  // Employee accounts (those linked to a Driver row) must never reach /admin.
+  if (!isAdmin) {
+    redirect("/clock");
   }
 
   return (
