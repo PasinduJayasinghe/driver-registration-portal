@@ -45,6 +45,48 @@ function StatusPill({ status }) {
   );
 }
 
+const LICENCE_TYPE_LABELS = {
+  full_uk: "Full UK",
+  provisional_uk: "Provisional UK",
+  eu: "EU",
+  international: "International",
+  other: "Other",
+};
+
+function DriverDetails({ driver }) {
+  const hasAny =
+    driver.nationality ||
+    driver.yearsOfExperience != null ||
+    driver.licenceNumber ||
+    driver.licenceType;
+
+  if (!hasAny) {
+    return <span className="text-on-surface-variant/60">—</span>;
+  }
+
+  return (
+    <div className="flex flex-col gap-0.5 text-label-sm">
+      {driver.nationality ? <div>{driver.nationality}</div> : null}
+      {driver.yearsOfExperience != null ? (
+        <div>
+          {driver.yearsOfExperience}{" "}
+          {driver.yearsOfExperience === 1 ? "year" : "years"} experience
+        </div>
+      ) : null}
+      {driver.licenceNumber ? (
+        <div className="font-mono text-on-surface-variant/80">
+          {driver.licenceNumber}
+        </div>
+      ) : null}
+      {driver.licenceType ? (
+        <div className="text-on-surface-variant/80">
+          {LICENCE_TYPE_LABELS[driver.licenceType] ?? driver.licenceType}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function ActionButtons({ driver }) {
   if (driver.status === "PENDING") {
     return (
@@ -184,6 +226,9 @@ export default async function RequestsPage({ searchParams }) {
                     Role
                   </th>
                   <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+                    Driver Details
+                  </th>
+                  <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
                     Submitted
                   </th>
                   <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
@@ -207,12 +252,25 @@ export default async function RequestsPage({ searchParams }) {
                       <div className="text-label-sm text-on-surface-variant">
                         {driver.employeeId}
                       </div>
+                      {driver.email ? (
+                        <div className="text-label-sm text-on-surface-variant/80">
+                          {driver.email}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="py-4 px-6 text-on-surface-variant">
-                      {driver.contactNumber}
+                      <div>{driver.contactNumber}</div>
+                      {driver.address ? (
+                        <div className="text-label-sm text-on-surface-variant/80">
+                          {driver.address}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="py-4 px-6 text-on-surface-variant">
                       {JOB_ROLE_LABELS[driver.jobRole] ?? driver.jobRole}
+                    </td>
+                    <td className="py-4 px-6 text-on-surface-variant">
+                      <DriverDetails driver={driver} />
                     </td>
                     <td className="py-4 px-6 text-on-surface-variant">
                       {dateFmt.format(driver.createdAt)}

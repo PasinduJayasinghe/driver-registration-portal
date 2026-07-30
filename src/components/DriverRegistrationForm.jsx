@@ -4,7 +4,54 @@ import { useActionState, useEffect, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { registerDriver } from "@/app/actions/drivers";
 
-const initialState = { ok: false, message: "", employeeId: null };
+const initialState = {
+  ok: false,
+  message: "",
+  employeeId: null,
+  fieldErrors: {},
+};
+
+function TextField({
+  name,
+  label,
+  error,
+  type = "text",
+  placeholder,
+  required,
+  ...inputProps
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label
+        htmlFor={name}
+        className="text-label-md font-semibold tracking-[0.05em] text-on-surface"
+      >
+        {label}
+        {required ? <span className="text-error ml-1">*</span> : null}
+      </label>
+      <input
+        id={name}
+        name={name}
+        type={type}
+        required={required}
+        placeholder={placeholder}
+        aria-invalid={error ? "true" : undefined}
+        aria-describedby={error ? `${name}-error` : undefined}
+        className={`px-3 py-2 border rounded-lg bg-surface-container-lowest text-on-surface focus:outline-none focus:ring-2 transition-shadow ${
+          error
+            ? "border-error focus:border-error focus:ring-error/20"
+            : "border-outline focus:border-primary focus:ring-primary-container/20"
+        }`}
+        {...inputProps}
+      />
+      {error ? (
+        <span id={`${name}-error`} className="text-label-sm text-error">
+          {error}
+        </span>
+      ) : null}
+    </div>
+  );
+}
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -33,7 +80,7 @@ export default function DriverRegistrationForm() {
   const showError = !state.ok && state.message;
 
   return (
-    <div className="w-full max-w-md bg-surface-container-lowest shadow-md rounded-xl p-stack-lg border-t-4 border-primary">
+    <div className="w-full max-w-lg bg-surface-container-lowest shadow-md rounded-xl p-stack-lg border-t-4 border-primary">
       <div aria-hidden="true" className="flex items-center justify-between mb-stack-lg">
         <div className="flex flex-col items-center">
           <div
@@ -116,61 +163,107 @@ export default function DriverRegistrationForm() {
       </div>
 
       <form ref={formRef} action={formAction} className="space-y-stack-md">
-        <div className="flex flex-col gap-1">
-          <label
-            htmlFor="fullName"
-            className="text-label-md font-semibold tracking-[0.05em] text-on-surface"
-          >
-            Full Name
-          </label>
-          <input
-            id="fullName"
-            name="fullName"
-            type="text"
-            required
-            placeholder="Jane Doe"
-            className="px-3 py-2 border border-outline rounded-lg bg-surface-container-lowest text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-container/20 transition-shadow"
-          />
-        </div>
+        <TextField
+          name="fullName"
+          label="Your Name"
+          placeholder="Enter your Name"
+          required
+          error={state.fieldErrors?.fullName}
+        />
+
+        <TextField
+          name="email"
+          label="Your Email"
+          type="email"
+          placeholder="Enter the Email"
+          required
+          error={state.fieldErrors?.email}
+        />
+
+        <TextField
+          name="contactNumber"
+          label="Mobile Number"
+          type="tel"
+          placeholder="Enter the Mobile Number"
+          required
+          error={state.fieldErrors?.contactNumber}
+        />
+
+        <TextField
+          name="address"
+          label="Address"
+          placeholder="Enter the Address"
+          required
+          error={state.fieldErrors?.address}
+        />
+
+        <p className="text-body-md text-on-surface pt-stack-sm">
+          Please provide your nationality, years of driving experience,
+          driver&apos;s license number, and license type.
+        </p>
+
+        <TextField
+          name="nationality"
+          label="Nationality"
+          placeholder="Enter your Nationality"
+          required
+          error={state.fieldErrors?.nationality}
+        />
+
+        <TextField
+          name="yearsOfExperience"
+          label="Years of Driving Experience"
+          type="number"
+          min="0"
+          max="70"
+          step="1"
+          placeholder="Enter the number of years"
+          required
+          error={state.fieldErrors?.yearsOfExperience}
+        />
+
+        <TextField
+          name="licenceNumber"
+          label="Driver's Licence Number"
+          placeholder="Enter the Licence Number"
+          required
+          error={state.fieldErrors?.licenceNumber}
+        />
 
         <div className="flex flex-col gap-1">
           <label
-            htmlFor="contactNumber"
+            htmlFor="licenceType"
             className="text-label-md font-semibold tracking-[0.05em] text-on-surface"
           >
-            Contact Number
-          </label>
-          <input
-            id="contactNumber"
-            name="contactNumber"
-            type="tel"
-            required
-            placeholder="+1 (555) 000-0000"
-            className="px-3 py-2 border border-outline rounded-lg bg-surface-container-lowest text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-container/20 transition-shadow"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label
-            htmlFor="jobRole"
-            className="text-label-md font-semibold tracking-[0.05em] text-on-surface"
-          >
-            Job Role
+            Licence Type
+            <span className="text-error ml-1">*</span>
           </label>
           <select
-            id="jobRole"
-            name="jobRole"
+            id="licenceType"
+            name="licenceType"
             required
             defaultValue=""
-            className="px-3 py-2 border border-outline rounded-lg bg-surface-container-lowest text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-container/20 transition-shadow appearance-none cursor-pointer"
+            aria-invalid={state.fieldErrors?.licenceType ? "true" : undefined}
+            className={`px-3 py-2 border rounded-lg bg-surface-container-lowest text-on-surface focus:outline-none focus:ring-2 transition-shadow appearance-none cursor-pointer ${
+              state.fieldErrors?.licenceType
+                ? "border-error focus:border-error focus:ring-error/20"
+                : "border-outline focus:border-primary focus:ring-primary-container/20"
+            }`}
           >
             <option value="" disabled>
-              Select a role...
+              Select a licence type...
             </option>
-            <option value="driver">Driver</option>
-            <option value="sri_lankan_staff">Sri Lankan Staff</option>
-            <option value="manager">Manager</option>
+            <option value="full_uk">Full UK Licence</option>
+            <option value="provisional_uk">Provisional UK Licence</option>
+            <option value="eu">EU Licence</option>
+            <option value="international">International Licence</option>
+            <option value="other">Other</option>
           </select>
+          {state.fieldErrors?.licenceType ? (
+            <span className="text-label-sm text-error">
+              {state.fieldErrors.licenceType}
+            </span>
+          ) : null}
         </div>
 
         <SubmitButton />

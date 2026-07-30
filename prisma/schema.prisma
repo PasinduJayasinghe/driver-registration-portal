@@ -22,6 +22,11 @@ enum PayrollStatus {
   PAID
 }
 
+enum TimeEntryStatus {
+  OPEN
+  CLOSED
+}
+
 model Driver {
   id              String       @id @default(cuid())
   fullName        String
@@ -33,7 +38,15 @@ model Driver {
   reviewedByEmail String?
   email           String?
   address         String?
+  userId          String?      @unique
+  // Driver-specific details captured at public registration. Nullable because
+  // staff/manager records created from /admin/employees never collect them.
+  nationality       String?
+  yearsOfExperience Int?
+  licenceNumber     String?
+  licenceType       String?
   payrolls        Payroll[]
+  timeEntries     TimeEntry[]
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
@@ -61,4 +74,20 @@ model Payroll {
   @@unique([driverId, periodMonth, periodYear])
   @@index([periodYear, periodMonth])
   @@index([status])
+}
+
+model TimeEntry {
+  id        String          @id @default(cuid())
+  driverId  String
+  driver    Driver          @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  clockIn   DateTime
+  clockOut  DateTime?
+  status    TimeEntryStatus @default(OPEN)
+  notes     String?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@index([driverId, clockIn])
+  @@index([status])
+  @@index([clockIn])
 }

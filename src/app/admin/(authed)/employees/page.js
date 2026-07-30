@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import DeleteEmployeeButton from "@/components/admin/DeleteEmployeeButton";
 import AddEmployeeButton from "@/components/admin/AddEmployeeButton";
+import EmployeeAuthLinkButton from "@/components/admin/EmployeeAuthLinkButton";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,8 @@ const JOB_ROLE_LABELS = {
   sri_lankan_staff: "Sri Lankan Staff",
   manager: "Manager",
 };
+
+const CLOCKABLE = new Set(["sri_lankan_staff", "manager"]);
 
 const ROLE_TABS = [
   { key: "all", label: "All", role: null },
@@ -124,6 +127,9 @@ export default async function EmployeesPage({ searchParams }) {
           <form className="flex items-center gap-2" action="/admin/employees">
             <input type="hidden" name="role" value={activeTab.key} />
             <div className="relative flex-1">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px] pointer-events-none">
+                search
+              </span>
               <input
                 type="text"
                 name="q"
@@ -211,7 +217,10 @@ export default async function EmployeesPage({ searchParams }) {
                       ) : null}
                     </td>
                     <td className="py-4 px-6 text-right">
-                      <div className="flex justify-end">
+                      <div className="flex justify-end gap-2">
+                        {CLOCKABLE.has(e.jobRole) ? (
+                          <EmployeeAuthLinkButton driver={e} />
+                        ) : null}
                         <DeleteEmployeeButton id={e.id} name={e.fullName} />
                       </div>
                     </td>

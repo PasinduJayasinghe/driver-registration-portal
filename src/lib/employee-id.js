@@ -4,11 +4,11 @@ const ID_PREFIX = "FEN-";
 const ID_PAD = 5;
 
 export async function nextEmployeeId() {
-  const rows = await prisma.$queryRaw`
-    SELECT COALESCE(MAX(CAST(SUBSTRING("employeeId" FROM ${ID_PREFIX.length + 1}) AS INTEGER)), 0) AS max
-    FROM "Driver"
-    WHERE "employeeId" ~ ${`^${ID_PREFIX}[0-9]+$`}
-  `;
+  const rows = await prisma.$queryRawUnsafe(
+    `SELECT COALESCE(MAX(CAST(SUBSTRING("employeeId" FROM 5) AS INTEGER)), 0) AS max
+     FROM "Driver"
+     WHERE "employeeId" ~ '^FEN-[0-9]+$'`
+  );
   const max = Number(rows?.[0]?.max ?? 0);
   return `${ID_PREFIX}${String(max + 1).padStart(ID_PAD, "0")}`;
 }

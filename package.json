@@ -16,6 +16,7 @@
     "@fontsource-variable/material-symbols-outlined": "^5.2.45",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "@react-pdf/renderer": "^4.5.1",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.107.0",
     "dotenv": "^17.4.2",

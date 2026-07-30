@@ -125,6 +125,55 @@ export default async function AdminOverviewPage() {
         <StatCard label="Total Submissions" value={total} icon="groups" />
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+        <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm border border-outline-variant/30 flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined p-2 rounded-lg text-primary bg-primary-container/10">
+              schedule
+            </span>
+            <h2 className="text-headline-md text-on-surface">Time Tracking</h2>
+          </div>
+          <p className="text-body-sm text-on-surface-variant">
+            Office staff clock in/out, see their history, and admins generate
+            monthly reports.
+          </p>
+          <div className="flex flex-wrap gap-2 mt-1">
+            <Link
+              href="/admin/time-entries"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary text-on-primary text-label-sm font-semibold tracking-[0.05em] hover:bg-primary-container transition-colors"
+            >
+              View time entries
+            </Link>
+            <Link
+              href="/admin/reports"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-outline text-on-surface-variant text-label-sm font-semibold tracking-[0.05em] hover:bg-surface-container transition-colors"
+            >
+              Monthly reports
+            </Link>
+          </div>
+        </div>
+        <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm border border-outline-variant/30 flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined p-2 rounded-lg text-secondary bg-secondary-container/30">
+              payments
+            </span>
+            <h2 className="text-headline-md text-on-surface">Payroll</h2>
+          </div>
+          <p className="text-body-sm text-on-surface-variant">
+            Track monthly pay runs for every Fenix Cars employee. Mark as Paid
+            when the bank transfer clears.
+          </p>
+          <div className="flex flex-wrap gap-2 mt-1">
+            <Link
+              href="/admin/payroll"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary text-on-primary text-label-sm font-semibold tracking-[0.05em] hover:bg-primary-container transition-colors"
+            >
+              Open payroll
+            </Link>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-gutter">
         <div className="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/30 flex flex-col lg:col-span-3">
           <div className="p-6 border-b border-outline-variant/30 flex justify-between items-center">

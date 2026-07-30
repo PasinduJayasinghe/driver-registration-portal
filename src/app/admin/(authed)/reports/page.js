@@ -1,0 +1,350 @@
+import { prisma } from "@/lib/prisma";
+import DownloadButtons from "@/components/admin/DownloadButtons";
+import {
+  daysInMonth,
+  formatTime,
+  formatDuration,
+  durationMs,
+  groupEntriesByDay,
+  MONTH_NAMES,
+  ymdInOffice,
+} from "@/lib/time";
+
+export const dynamic = "force-dynamic";
+
+const CLOCKABLE = new Set(["sri_lankan_staff", "manager"]);
+
+export default async function ReportsPage({ searchParams }) {
+  const params = (await searchParams) ?? {};
+  const now = new Date();
+  const month = Number(params.month) || now.getMonth() + 1;
+  const year = Number(params.year) || now.getFullYear();
+  const employeeId = typeof params.employeeId === "string" ? params.employeeId : "";
+
+  const employees = await prisma.driver.findMany({
+    where: { status: "APPROVED" },
+    orderBy: { fullName: "asc" },
+  });
+  const clockableEmployees = employees.filter((e) => CLOCKABLE.has(e.jobRole));
+
+  const where = {
+    ...(employeeId ? { driverId: employeeId } : {}),
+    clockIn: {
+      gte: new Date(Date.UTC(year, month - 1, 1)),
+      lt: new Date(Date.UTC(year, month, 1)),
+    },
+  };
+  const entries = await prisma.timeEntry.findMany({
+    where,
+    include: { driver: true },
+    orderBy: { clockIn: "asc" },
+  });
+
+  const filteredEntries = employeeId
+    ? entries
+    : entries.filter((e) => CLOCKABLE.has(e.driver.jobRole));
+
+  const employeeSummaries = buildSummaries(filteredEntries, clockableEmployees);
+  const days = daysInMonth(year, month);
+
+  const monthStart = Date.UTC(year, month - 1, 1);
+  const monthEnd = Date.UTC(year, month, 1);
+  const yearOptions = [];
+  for (let y = now.getFullYear() + 1; y >= now.getFullYear() - 4; y -= 1) {
+    yearOptions.push(y);
+  }
+
+  const scopeHref = (() => {
+    const sp = new URLSearchParams();
+    sp.set("month", String(month));
+    sp.set("year", String(year));
+    if (employeeId) sp.set("employeeId", employeeId);
+    return `/admin/reports?${sp.toString()}`;
+  })();
+
+  return (
+    <>
+      <div className="flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-headline-lg-mobile md:text-headline-lg text-on-surface">
+            Monthly Report
+          </h1>
+          <p className="text-body-lg text-on-surface-variant">
+            {MONTH_NAMES[month - 1]} {year} for office staff & managers.
+          </p>
+        </div>
+        <div className="mt-2 md:mt-0">
+          <DownloadButtons
+            csvHref={`/api/reports/csv?month=${month}&year=${year}${
+              employeeId ? `&employeeId=${employeeId}` : ""
+            }`}
+            pdfHref={`/api/reports/pdf?month=${month}&year=${year}${
+              employeeId ? `&employeeId=${employeeId}` : ""
+            }`}
+          />
+        </div>
+      </div>
+
+      <form
+        action="/admin/reports"
+        className="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/30 p-4 flex flex-wrap items-end gap-3"
+      >
+        <div className="flex flex-col gap-1">
+          <label htmlFor="month" className="text-label-sm text-on-surface-variant">
+            Month
+          </label>
+          <select
+            id="month"
+            name="month"
+            defaultValue={month}
+            className="px-3 py-2 bg-surface-container rounded-lg border border-outline-variant/40 text-body-md text-on-surface focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none"
+          >
+            {MONTH_NAMES.map((n, i) => (
+              <option key={i + 1} value={i + 1}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="year" className="text-label-sm text-on-surface-variant">
+            Year
+          </label>
+          <select
+            id="year"
+            name="year"
+            defaultValue={year}
+            className="px-3 py-2 bg-surface-container rounded-lg border border-outline-variant/40 text-body-md text-on-surface focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none"
+          >
+            {yearOptions.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="employeeId" className="text-label-sm text-on-surface-variant">
+            Employee
+          </label>
+          <select
+            id="employeeId"
+            name="employeeId"
+            defaultValue={employeeId}
+            className="px-3 py-2 bg-surface-container rounded-lg border border-outline-variant/40 text-body-md text-on-surface focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none"
+          >
+            <option value="">All office staff</option>
+            {clockableEmployees.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.fullName} ({e.employeeId})
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          type="submit"
+          className="px-4 py-2 bg-primary text-on-primary rounded-full text-label-md font-semibold tracking-[0.05em] hover:bg-primary-container transition-colors"
+        >
+          Apply
+        </button>
+      </form>
+
+      <div className="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/30 flex flex-col">
+        <div className="p-4 border-b border-outline-variant/30">
+          <h2 className="text-headline-md text-on-surface">
+            Per-employee summary
+          </h2>
+        </div>
+        {employeeSummaries.length === 0 ? (
+          <div className="p-12 text-center text-on-surface-variant">
+            No employees in the office staff filter.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-surface-container-low border-b border-outline-variant/30">
+                  <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+                    Employee
+                  </th>
+                  <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+                    Shifts
+                  </th>
+                  <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+                    Days worked
+                  </th>
+                  <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+                    Total
+                  </th>
+                  <th className="py-3 px-6 text-label-sm text-on-surface-variant uppercase tracking-wider">
+                    Avg / day
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="text-body-md">
+                {employeeSummaries.map((s, idx) => (
+                  <tr
+                    key={s.driverId}
+                    className={`border-b border-outline-variant/10 ${
+                      idx % 2 === 1 ? "bg-surface-bright" : ""
+                    }`}
+                  >
+                    <td className="py-3 px-6 text-on-surface font-medium">
+                      <div>{s.fullName}</div>
+                      <div className="text-label-sm text-on-surface-variant font-mono">
+                        {s.employeeId}
+                      </div>
+                    </td>
+                    <td className="py-3 px-6 text-on-surface-variant">
+                      {s.shiftCount}
+                    </td>
+                    <td className="py-3 px-6 text-on-surface-variant">
+                      {s.daysWorked}
+                    </td>
+                    <td className="py-3 px-6 text-on-surface font-semibold">
+                      {formatDuration(s.totalMs)}
+                    </td>
+                    <td className="py-3 px-6 text-on-surface-variant">
+                      {s.daysWorked > 0
+                        ? formatDuration(Math.round(s.totalMs / s.daysWorked))
+                        : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/30 flex flex-col">
+        <div className="p-4 border-b border-outline-variant/30">
+          <h2 className="text-headline-md text-on-surface">
+            Day-by-day — {MONTH_NAMES[month - 1]} {year}
+          </h2>
+        </div>
+        {employeeSummaries.length === 0 ? (
+          <div className="p-12 text-center text-on-surface-variant">No data.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-label-md">
+              <thead>
+                <tr className="bg-surface-container-low border-b border-outline-variant/30">
+                  <th className="py-2 px-3 text-label-sm text-on-surface-variant uppercase tracking-wider sticky left-0 bg-surface-container-low">
+                    Date
+                  </th>
+                  {employeeSummaries.map((s) => (
+                    <th
+                      key={s.driverId}
+                      className="py-2 px-3 text-label-sm text-on-surface-variant uppercase tracking-wider"
+                    >
+                      {s.fullName}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {days.map((d, idx) => (
+                  <tr
+                    key={d.ymd}
+                    className={`border-b border-outline-variant/10 ${
+                      idx % 2 === 1 ? "bg-surface-bright" : ""
+                    } ${d.isWeekend ? "bg-surface-container-low" : ""}`}
+                  >
+                    <td className="py-2 px-3 text-on-surface font-medium sticky left-0 bg-inherit">
+                      {MONTH_NAMES[month - 1].slice(0, 3)} {d.dayOfMonth}
+                      {d.isWeekend ? (
+                        <span className="ml-2 text-label-sm text-on-surface-variant">
+                          weekend
+                        </span>
+                      ) : null}
+                    </td>
+                    {employeeSummaries.map((s) => {
+                      const cell = s.byDay.get(d.ymd);
+                      if (!cell) {
+                        return (
+                          <td
+                            key={s.driverId}
+                            className="py-2 px-3 text-on-surface-variant/60"
+                          >
+                            —
+                          </td>
+                        );
+                      }
+                      const first = cell.entries[0];
+                      return (
+                        <td
+                          key={s.driverId}
+                          className="py-2 px-3 text-on-surface"
+                        >
+                          <div className="font-mono text-label-sm">
+                            {formatTime(first.clockIn)} –{" "}
+                            {first.clockOut
+                              ? formatTime(first.clockOut)
+                              : "(open)"}
+                          </div>
+                          <div className="text-label-sm text-on-surface-variant">
+                            {formatDuration(cell.totalMs)}
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+                <tr className="bg-surface-container-low font-semibold">
+                  <td className="py-3 px-3 text-on-surface sticky left-0 bg-surface-container-low">
+                    Total
+                  </td>
+                  {employeeSummaries.map((s) => (
+                    <td
+                      key={s.driverId}
+                      className="py-3 px-3 text-on-surface"
+                    >
+                      <div>{formatDuration(s.totalMs)}</div>
+                      <div className="text-label-sm font-normal text-on-surface-variant">
+                        {s.daysWorked} days, {s.shiftCount} shifts
+                      </div>
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+function buildSummaries(entries, employees) {
+  const byEmployee = new Map();
+  for (const e of employees) {
+    byEmployee.set(e.id, {
+      driverId: e.id,
+      fullName: e.fullName,
+      employeeId: e.employeeId,
+      entries: [],
+    });
+  }
+  for (const e of entries) {
+    const bucket = byEmployee.get(e.driverId);
+    if (bucket) bucket.entries.push(e);
+  }
+  return Array.from(byEmployee.values()).map((b) => {
+    const totalMs = b.entries.reduce(
+      (sum, e) => sum + (durationMs(e.clockIn, e.clockOut) ?? 0),
+      0
+    );
+    const byDay = groupEntriesByDay(b.entries);
+    const daysWorked = byDay.size;
+    return {
+      driverId: b.driverId,
+      fullName: b.fullName,
+      employeeId: b.employeeId,
+      shiftCount: b.entries.length,
+      daysWorked,
+      totalMs,
+      byDay,
+    };
+  });
+}
