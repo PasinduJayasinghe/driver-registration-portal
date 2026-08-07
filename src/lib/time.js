@@ -133,6 +133,38 @@ export function endOfDayInOffice(date) {
   return new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1);
 }
 
+// `datetime-local` inputs submit a bare wall-clock string ("2026-08-07T14:30")
+// with no zone. Passing that to `new Date()` interprets it in the *server's*
+// zone — UTC on Vercel — so an interview booked for 2pm would be stored as 2pm
+// UTC and shown to the office as some other hour entirely. These two helpers
+// anchor the conversion to office time in both directions.
+export function officeLocalToUtc(local) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(local ?? ""));
+  if (!m) return null;
+  const asUtc = Date.UTC(
+    Number(m[1]),
+    Number(m[2]) - 1,
+    Number(m[3]),
+    Number(m[4]),
+    Number(m[5])
+  );
+  // Offset is computed at the target instant so a future DST change can't skew it.
+  const offset = officeOffsetMs(new Date(asUtc));
+  const parsed = new Date(asUtc - offset);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+// Inverse of officeLocalToUtc: renders an instant as the "YYYY-MM-DDTHH:mm"
+// string a datetime-local input expects, in office time.
+export function toOfficeLocalInput(date) {
+  if (!date) return "";
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return "";
+  const parts = OFFICE_PARTS_FMT.formatToParts(d);
+  const get = (t) => parts.find((p) => p.type === t)?.value ?? "00";
+  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
+}
+
 export function addDays(date, days) {
   return new Date(new Date(date).getTime() + days * 24 * 60 * 60 * 1000);
 }

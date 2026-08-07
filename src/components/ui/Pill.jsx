@@ -1,3 +1,5 @@
+import { STAGE_META, INTERVIEW_OUTCOME_LABELS } from "@/lib/pipeline";
+
 // Status and category pills.
 //
 // Server component — these are pure presentation with no interactivity, so
@@ -54,10 +56,25 @@ export default function Pill({ tone = "neutral", dot = true, children }) {
   );
 }
 
-// Maps a Driver.status to a pill. Kept here so every page renders the same
-// label and tone for a given status.
+// Maps a Driver.status to a pill. Labels and tones come from the pipeline
+// definition so a stage is named identically everywhere it appears.
 export function StatusPill({ status }) {
-  if (status === "APPROVED") return <Pill tone="positive">Approved</Pill>;
-  if (status === "REJECTED") return <Pill tone="negative">Rejected</Pill>;
-  return <Pill tone="pending">Pending</Pill>;
+  const meta = STAGE_META[status];
+  if (!meta) return <Pill tone="neutral">{status ?? "Unknown"}</Pill>;
+  return <Pill tone={meta.tone}>{meta.label}</Pill>;
+}
+
+// Outcome of a completed interview. Distinct from StatusPill: a candidate can
+// sit at INTERVIEWED having failed, and both facts need to be visible at once.
+export function InterviewOutcomePill({ outcome }) {
+  const label = INTERVIEW_OUTCOME_LABELS[outcome] ?? outcome;
+  const tone =
+    outcome === "PASSED"
+      ? "positive"
+      : outcome === "FAILED" || outcome === "NO_SHOW"
+        ? "negative"
+        : outcome === "CANCELLED"
+          ? "neutral"
+          : "warning";
+  return <Pill tone={tone}>{label}</Pill>;
 }

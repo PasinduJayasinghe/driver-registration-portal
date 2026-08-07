@@ -20,14 +20,35 @@ function ok(message) {
 
 async function updateStatus(id, status) {
   const reviewer = await requireAdmin();
-  await prisma.driver.update({
+  // Read the current stage first so the audit event records where they came
+  // from. These legacy actions bypass the pipeline's transition table by
+  // design — they are the admin's direct-decision escape hatch — but they must
+  // still leave a trail, or the stage history would have holes.
+  const existing = await prisma.driver.findUnique({
     where: { id },
-    data: {
-      status,
-      reviewedAt: new Date(),
-      reviewedByEmail: reviewer,
-    },
+    select: { status: true },
   });
+  const now = new Date();
+  await prisma.$transaction([
+    prisma.driver.update({
+      where: { id },
+      data: {
+        status,
+        stageChangedAt: now,
+        reviewedAt: now,
+        reviewedByEmail: reviewer,
+      },
+    }),
+    prisma.driverStageEvent.create({
+      data: {
+        driverId: id,
+        fromStatus: existing?.status ?? null,
+        toStatus: status,
+        actorEmail: reviewer,
+        note: "Direct decision",
+      },
+    }),
+  ]);
   revalidatePath("/admin");
   revalidatePath("/admin/requests");
   revalidatePath("/admin/employees");
@@ -48,11 +69,31 @@ export async function rejectDriver(formData) {
 export async function resetDriver(formData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
-  await requireAdmin();
-  await prisma.driver.update({
+  const reviewer = await requireAdmin();
+  const existing = await prisma.driver.findUnique({
     where: { id },
-    data: { status: "PENDING", reviewedAt: null, reviewedByEmail: null },
+    select: { status: true },
   });
+  await prisma.$transaction([
+    prisma.driver.update({
+      where: { id },
+      data: {
+        status: "PENDING",
+        stageChangedAt: new Date(),
+        reviewedAt: null,
+        reviewedByEmail: null,
+      },
+    }),
+    prisma.driverStageEvent.create({
+      data: {
+        driverId: id,
+        fromStatus: existing?.status ?? null,
+        toStatus: "PENDING",
+        actorEmail: reviewer,
+        note: "Reopened",
+      },
+    }),
+  ]);
   revalidatePath("/admin");
   revalidatePath("/admin/requests");
   revalidatePath("/admin/employees");

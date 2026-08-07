@@ -8,7 +8,7 @@ import { springSnappy } from "@/lib/motion";
 
 const NAV_ITEMS = [
   { href: "/admin", icon: "dashboard", label: "Overview", key: "overview" },
-  { href: "/admin/requests", icon: "person_add", label: "Employee Requests", key: "requests" },
+  { href: "/admin/requests", icon: "person_add", label: "Recruitment", key: "requests" },
   { href: "/admin/employees", icon: "badge", label: "Employees", key: "employees" },
   { href: "/admin/time-entries", icon: "schedule", label: "Time Entries", key: "time-entries" },
   { href: "/admin/reports", icon: "assessment", label: "Reports", key: "reports" },

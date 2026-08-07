@@ -11,10 +11,38 @@ datasource db {
   provider = "postgresql"
 }
 
+// Recruitment pipeline stages, in funnel order.
+//
+// IMPORTANT: APPROVED still means "hired, is a real employee" — exactly what it
+// meant before the pipeline existed. Everything downstream keys off it
+// (/admin/employees, payroll, reports, requireEmployee clock access), so its
+// meaning must not drift. The new stages are inserted *ahead* of it: a candidate
+// now walks PENDING -> SHORTLISTED -> INTERVIEW_SCHEDULED -> INTERVIEWED before
+// anyone can hire them, and only the final hire flips them to APPROVED.
+//
+// REJECTED is reachable from any stage; which stage they were rejected from is
+// recorded in DriverStageEvent rather than encoded as separate enum values.
 enum DriverStatus {
-  PENDING
-  APPROVED
+  PENDING             // Applied. Awaiting initial screening.
+  SHORTLISTED         // Passed screening. Ready to book an interview.
+  INTERVIEW_SCHEDULED // Interview booked (see Interview.scheduledAt).
+  INTERVIEWED         // Interview done. Awaiting the hire/reject decision.
+  APPROVED            // HIRED — a real employee. Unchanged semantics.
   REJECTED
+}
+
+enum InterviewMode {
+  IN_PERSON
+  PHONE
+  VIDEO
+}
+
+enum InterviewOutcome {
+  PENDING
+  PASSED
+  FAILED
+  NO_SHOW
+  CANCELLED
 }
 
 enum PayrollStatus {
@@ -45,6 +73,12 @@ model Driver {
   yearsOfExperience Int?
   licenceNumber     String?
   licenceType       String?
+  // When the candidate last moved stage. Drives the "waiting N days" signal on
+  // the pipeline — the whole point of a funnel is spotting who is stuck in it,
+  // which createdAt/updatedAt can't answer (updatedAt moves on any edit).
+  stageChangedAt  DateTime?
+  interviews      Interview[]
+  stageEvents     DriverStageEvent[]
   payrolls        Payroll[]
   timeEntries     TimeEntry[]
   createdAt       DateTime     @default(now())
@@ -53,6 +87,51 @@ model Driver {
   @@index([status])
   @@index([createdAt])
   @@index([jobRole])
+  // Pipeline views list one stage ordered by how long it has been waiting.
+  @@index([status, stageChangedAt])
+}
+
+// A booked interview. Rescheduling creates a NEW row rather than mutating the
+// old one, so "we moved this candidate twice" stays visible; the current
+// interview is the most recent non-CANCELLED row. Multiple rounds work the
+// same way.
+model Interview {
+  id               String           @id @default(cuid())
+  driverId         String
+  driver           Driver           @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  scheduledAt      DateTime
+  durationMins     Int              @default(30)
+  mode             InterviewMode    @default(IN_PERSON)
+  location         String?
+  interviewerEmail String?
+  outcome          InterviewOutcome @default(PENDING)
+  notes            String?
+  completedAt      DateTime?
+  scheduledByEmail String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([driverId, scheduledAt])
+  // "What interviews are happening today / are overdue" scans by date.
+  @@index([scheduledAt])
+  @@index([outcome])
+}
+
+// Append-only audit of every stage move: who moved whom, when, and why.
+// Driver.reviewedAt/reviewedByEmail only hold the *latest* decision and get
+// overwritten; hiring decisions need the full trail.
+model DriverStageEvent {
+  id         String        @id @default(cuid())
+  driverId   String
+  driver     Driver        @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  fromStatus DriverStatus?
+  toStatus   DriverStatus
+  actorEmail String?
+  note       String?
+  createdAt  DateTime      @default(now())
+
+  @@index([driverId, createdAt])
+  @@index([createdAt])
 }
 
 model Payroll {
