@@ -114,11 +114,16 @@ export default async function RequestsPage({ searchParams }) {
   const rawTab = typeof params.tab === "string" ? params.tab : "pending";
   const activeTab = STATUS_TABS.find((t) => t.key === rawTab) ?? STATUS_TABS[0];
 
+  const page = Math.max(1, Number(params.page) || 1);
+  const PAGE_SIZE = 100;
+
   const where = activeTab.status ? { status: activeTab.status } : {};
   const [drivers, counts] = await Promise.all([
     prisma.driver.findMany({
       where,
       orderBy: { createdAt: "desc" },
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
       select: {
         id: true,
         fullName: true,
@@ -147,6 +152,11 @@ export default async function RequestsPage({ searchParams }) {
     return acc;
   }, {});
   const total = (countMap.PENDING ?? 0) + (countMap.APPROVED ?? 0) + (countMap.REJECTED ?? 0);
+
+  // The groupBy already counts every status, so the total for the active tab
+  // comes for free — no extra count() round trip just to paginate.
+  const totalMatching = activeTab.status ? countMap[activeTab.status] ?? 0 : total;
+  const totalPages = Math.max(1, Math.ceil(totalMatching / PAGE_SIZE));
 
   const dateFmt = new Intl.DateTimeFormat("en-US", {
     month: "short",
@@ -263,6 +273,34 @@ export default async function RequestsPage({ searchParams }) {
             </table>
           )}
         </div>
+
+        {totalPages > 1 ? (
+          <div className="p-4 border-t border-outline-variant/30 flex items-center justify-between gap-3">
+            <span className="text-label-sm text-on-surface-variant">
+              Page {page} of {totalPages} · {totalMatching} requests
+            </span>
+            <div className="flex items-center gap-2">
+              {page > 1 ? (
+                <a
+                  href={`/admin/requests?tab=${activeTab.key}${
+                    page - 1 > 1 ? `&page=${page - 1}` : ""
+                  }`}
+                  className="px-3 py-1.5 rounded-full border border-outline text-on-surface-variant text-label-sm font-semibold hover:bg-surface-container transition-colors"
+                >
+                  Previous
+                </a>
+              ) : null}
+              {page < totalPages ? (
+                <a
+                  href={`/admin/requests?tab=${activeTab.key}&page=${page + 1}`}
+                  className="px-3 py-1.5 rounded-full border border-outline text-on-surface-variant text-label-sm font-semibold hover:bg-surface-container transition-colors"
+                >
+                  Next
+                </a>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
       </div>
     </>
   );

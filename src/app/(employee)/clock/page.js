@@ -1,27 +1,20 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
-import { autoCloseStaleEntries } from "@/app/(employee)/clock/actions";
+import { getAuthContext } from "@/lib/auth";
 import ClockButton from "@/app/(employee)/clock/ClockButton";
 import { formatTime, formatDateTime, formatDuration, durationMs } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
 export default async function ClockPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const driver = await prisma.driver.findUnique({
-    where: { userId: user.id },
-    select: { id: true, fullName: true, employeeId: true, jobRole: true },
-  });
+  // Shares the layout's cached lookup rather than re-authenticating and
+  // re-querying the driver row, which used to cost two extra round trips.
+  const { driver } = await getAuthContext();
   if (!driver) redirect("/login");
 
-  await autoCloseStaleEntries();
-
+  // NOTE: auto-closing stale entries used to run here, blocking first paint on
+  // a write path that is a no-op almost every time. It now runs on clock-in,
+  // which is the only moment a forgotten open entry actually blocks anything.
   const [openEntry, recent] = await Promise.all([
     prisma.timeEntry.findFirst({
       where: { driverId: driver.id, status: "OPEN" },

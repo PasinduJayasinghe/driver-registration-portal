@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 
@@ -18,22 +19,33 @@ export const CLOCKABLE_ROLES = new Set(["sri_lankan_staff", "manager"]);
 // requireAdmin(). The proxy redirect is a UX convenience, not an authorization
 // boundary — server actions are directly invocable and do not pass through it.
 
+// PERFORMANCE: both lookups below are wrapped in React `cache()`, which dedupes
+// them per request. A single navigation previously resolved the same identity
+// several times over — the layout called getAuthContext(), the page called
+// supabase.auth.getUser() and re-queried the driver row itself, and any server
+// action reached for it again. Each of those was a round trip to Supabase, so
+// the duplicates cost real wall-clock time rather than just being untidy.
+//
+// cache() is per-request and never shared between users, so this is safe for
+// auth data: two different visitors can never observe each other's context.
+
 /**
  * Returns the current Supabase user, or null when signed out.
+ * Deduped per request.
  */
-export async function getCurrentUser() {
+export const getCurrentUser = cache(async function getCurrentUser() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   return user ?? null;
-}
+});
 
 /**
  * Resolves the signed-in user to { user, driver, isAdmin }.
- * `driver` is null for admins.
+ * `driver` is null for admins. Deduped per request.
  */
-export async function getAuthContext() {
+export const getAuthContext = cache(async function getAuthContext() {
   const user = await getCurrentUser();
   if (!user) return { user: null, driver: null, isAdmin: false };
 
@@ -49,7 +61,7 @@ export async function getAuthContext() {
   });
 
   return { user, driver, isAdmin: driver === null };
-}
+});
 
 /**
  * Throws unless the caller is an admin. Returns the identifier to record as the

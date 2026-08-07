@@ -1,4 +1,10 @@
-@import url("https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap");
+/* Hanken Grotesk is loaded via next/font in app/layout.js, not with an
+   @import here. A CSS @import to a third-party origin is render-blocking AND
+   serially discovered: the browser has to download and parse this file before
+   it even learns it needs to open a connection to fonts.googleapis.com. That
+   put a full DNS + TLS + fetch round trip in front of first paint. next/font
+   self-hosts the file, so it ships from our own origin with no extra
+   connection and no layout shift. */
 @import "@fontsource-variable/material-symbols-outlined/wght.css";
 @import "@fontsource-variable/material-symbols-outlined/fill.css";
 @import "tailwindcss";
@@ -98,10 +104,13 @@
   --spacing-margin-desktop: 40px;
   --spacing-container-max: 1280px;
 
-  --font-display: "Hanken Grotesk", system-ui, sans-serif;
-  --font-headline: "Hanken Grotesk", system-ui, sans-serif;
-  --font-body: "Hanken Grotesk", system-ui, sans-serif;
-  --font-label: "Hanken Grotesk", system-ui, sans-serif;
+  /* --font-hanken is supplied by next/font in app/layout.js. The system-ui
+     fallback keeps text readable during the swap and in the unlikely case the
+     font fails to load. */
+  --font-display: var(--font-hanken), system-ui, sans-serif;
+  --font-headline: var(--font-hanken), system-ui, sans-serif;
+  --font-body: var(--font-hanken), system-ui, sans-serif;
+  --font-label: var(--font-hanken), system-ui, sans-serif;
 
   --text-display-lg: 48px;
   --text-display-lg--line-height: 56px;

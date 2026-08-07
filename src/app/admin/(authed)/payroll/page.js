@@ -25,12 +25,14 @@ const STATUS_TABS = [
   { key: "paid", label: "Paid", status: "PAID" },
 ];
 
-function buildHref({ status, month, year, employeeId }) {
+function buildHref({ status, month, year, employeeId, page }) {
   const sp = new URLSearchParams();
   if (status) sp.set("status", status);
   if (month) sp.set("month", month);
   if (year) sp.set("year", year);
   if (employeeId) sp.set("employeeId", employeeId);
+  // Page 1 is the default, so it stays out of the URL.
+  if (page && page > 1) sp.set("page", String(page));
   const qs = sp.toString();
   return qs ? `/admin/payroll?${qs}` : "/admin/payroll";
 }
@@ -54,11 +56,30 @@ export default async function PayrollPage({ searchParams }) {
     ...(employeeId ? { driverId: employeeId } : {}),
   };
 
+  const page = Math.max(1, Number(params.page) || 1);
+  const PAGE_SIZE = 100;
+
   const [records, employees, aggregate] = await Promise.all([
     prisma.payroll.findMany({
       where,
       orderBy: [{ periodYear: "desc" }, { periodMonth: "desc" }, { createdAt: "desc" }],
-      include: {
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      // Explicit select rather than include: the table below uses a fixed set
+      // of fields, so there's no reason to ship every Payroll column over a
+      // long-haul connection.
+      select: {
+        id: true,
+        driverId: true,
+        periodMonth: true,
+        periodYear: true,
+        basicSalary: true,
+        allowances: true,
+        deductions: true,
+        netSalary: true,
+        status: true,
+        paidDate: true,
+        notes: true,
         driver: { select: { id: true, fullName: true, employeeId: true } },
       },
     }),
@@ -77,7 +98,11 @@ export default async function PayrollPage({ searchParams }) {
   ]);
 
   const totalNet = Number(aggregate?._sum?.netSalary ?? 0);
+  // Counted across the whole filter, not just this page — the aggregate above
+  // deliberately shares `where` with the table query, so it doubles as the
+  // pagination total without a separate count().
   const totalCount = aggregate?._count?._all ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   const dateFmt = new Intl.DateTimeFormat("en-US", {
     month: "short",
@@ -263,6 +288,44 @@ export default async function PayrollPage({ searchParams }) {
         </div>
 
         <PayrollTable records={serialized} employees={employeeOptions} />
+
+        {totalPages > 1 ? (
+          <div className="p-4 border-t border-outline-variant/30 flex items-center justify-between gap-3">
+            <span className="text-label-sm text-on-surface-variant">
+              Page {page} of {totalPages} · {totalCount} records
+            </span>
+            <div className="flex items-center gap-2">
+              {page > 1 ? (
+                <a
+                  href={buildHref({
+                    status: activeTab.key === "all" ? null : activeTab.key,
+                    month,
+                    year,
+                    employeeId,
+                    page: page - 1,
+                  })}
+                  className="px-3 py-1.5 rounded-full border border-outline text-on-surface-variant text-label-sm font-semibold hover:bg-surface-container transition-colors"
+                >
+                  Previous
+                </a>
+              ) : null}
+              {page < totalPages ? (
+                <a
+                  href={buildHref({
+                    status: activeTab.key === "all" ? null : activeTab.key,
+                    month,
+                    year,
+                    employeeId,
+                    page: page + 1,
+                  })}
+                  className="px-3 py-1.5 rounded-full border border-outline text-on-surface-variant text-label-sm font-semibold hover:bg-surface-container transition-colors"
+                >
+                  Next
+                </a>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
       </div>
     </>
   );

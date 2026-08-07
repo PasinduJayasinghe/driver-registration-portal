@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
+import { getAuthContext } from "@/lib/auth";
 import {
   formatTime,
   formatDate,
@@ -14,16 +14,8 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function HistoryPage({ searchParams }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const driver = await prisma.driver.findUnique({
-    where: { userId: user.id },
-    select: { id: true, fullName: true, employeeId: true, jobRole: true },
-  });
+  // Reuses the layout's cached auth context — see the note in @/lib/auth.
+  const { driver } = await getAuthContext();
   if (!driver) redirect("/login");
 
   const params = (await searchParams) ?? {};
