@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Fenix Cars Portal
 
-## Getting Started
+Next.js (App Router) portal for Fenix Cars: public driver registration, the
+recruitment pipeline, employee roster, payroll, staff clock-in/out and monthly
+time reports. Data and auth are both on Supabase.
 
-First, run the development server:
+## Setup
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+1. Install dependencies:
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+   ```bash
+   npm install
+   ```
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+2. Create `.env.local`:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+   ```bash
+   NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>          # auth sessions only
+   SUPABASE_SERVICE_ROLE_KEY=<service role key>      # server-side data access
+   NEXT_PUBLIC_SITE_URL=http://localhost:3000        # used in password-set emails
+   ```
 
-## Learn More
+   The service-role key bypasses row level security. It is only read by
+   [src/lib/db.js](src/lib/db.js), which is server-only. Never prefix it with
+   `NEXT_PUBLIC_`.
 
-To learn more about Next.js, take a look at the following resources:
+3. Apply the database migrations in [supabase/migrations](supabase/migrations),
+   in filename order, either with the Supabase CLI (`supabase db push`) or by
+   pasting them into the dashboard's SQL editor.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+4. Run the dev server:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   ```bash
+   npm run dev
+   ```
 
-## Deploy on Vercel
+## How data access works
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- All reads and writes go through the Supabase Data API from server code, using
+  the client and helpers in [src/lib/db.js](src/lib/db.js). Every table has RLS
+  enabled with no policies, so the public anon key cannot read or write data.
+- Authorization is done in code: every admin action and route calls
+  `requireAdmin()`, every staff action calls `requireEmployee()`
+  ([src/lib/auth.js](src/lib/auth.js)). An authenticated user with no `Driver`
+  row is an admin.
+- Operations that must be atomic, or that the Data API can't express, are
+  Postgres functions called with `db().rpc(...)`: `apply_driver_transition`
+  (pipeline stage moves plus their audit event and interview changes),
+  `next_employee_number`, `driver_counts` and `payroll_summary`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Accounts
+
+- **Admins** are created in the Supabase dashboard (Authentication → Users) and
+  sign in at `/admin/login`.
+- **Staff logins** are created from `/admin/employees` → "Set up login", which
+  links the auth user to their `Driver` row and emails them a password-set link.
+  They sign in at `/login`.

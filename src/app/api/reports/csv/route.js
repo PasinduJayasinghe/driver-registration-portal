@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import { getAuthContext, CLOCKABLE_ROLES } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getAuthContext } from "@/lib/auth";
+import { getMonthlyTimeData } from "@/lib/time-report-data";
 import {
   daysInMonth,
   durationMs,
   formatTime,
   formatDuration,
   groupEntriesByDay,
-  officeMonthRange,
   MONTH_NAMES,
 } from "@/lib/time";
 
@@ -44,36 +43,15 @@ export async function GET(request) {
     return new NextResponse("Invalid month/year", { status: 400 });
   }
 
-  const filteredEmployees = await prisma.driver.findMany({
-    where: {
-      status: "APPROVED",
-      jobRole: { in: [...CLOCKABLE_ROLES] },
-      ...(employeeId ? { id: employeeId } : {}),
-    },
-    orderBy: { fullName: "asc" },
-    select: { id: true, fullName: true, employeeId: true },
+  const { employees: filteredEmployees, entries } = await getMonthlyTimeData({
+    year,
+    month,
+    employeeId,
   });
 
   if (employeeId && filteredEmployees.length === 0) {
     return new NextResponse("Employee not found", { status: 404 });
   }
-
-  // Office-local month bounds; see officeMonthRange in lib/time.js.
-  const { start, end } = officeMonthRange(year, month);
-  const entries = await prisma.timeEntry.findMany({
-    where: {
-      driverId: { in: filteredEmployees.map((e) => e.id) },
-      clockIn: { gte: start, lt: end },
-    },
-    orderBy: { clockIn: "asc" },
-    select: {
-      driverId: true,
-      clockIn: true,
-      clockOut: true,
-      status: true,
-      notes: true,
-    },
-  });
 
   const byEmployee = new Map();
   for (const e of filteredEmployees) {

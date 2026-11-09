@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { db, unwrap } from "@/lib/db";
 import { getAuthContext } from "@/lib/auth";
 import ClockButton from "@/app/(employee)/clock/ClockButton";
 import { formatTime, formatDateTime, formatDuration, durationMs } from "@/lib/time";
@@ -16,14 +16,24 @@ export default async function ClockPage() {
   // a write path that is a no-op almost every time. It now runs on clock-in,
   // which is the only moment a forgotten open entry actually blocks anything.
   const [openEntry, recent] = await Promise.all([
-    prisma.timeEntry.findFirst({
-      where: { driverId: driver.id, status: "OPEN" },
-    }),
-    prisma.timeEntry.findMany({
-      where: { driverId: driver.id, status: "CLOSED" },
-      orderBy: { clockOut: "desc" },
-      take: 5,
-    }),
+    unwrap(
+      db()
+        .from("TimeEntry")
+        .select("id, clockIn")
+        .eq("driverId", driver.id)
+        .eq("status", "OPEN")
+        .limit(1)
+        .maybeSingle()
+    ),
+    unwrap(
+      db()
+        .from("TimeEntry")
+        .select("id, clockIn, clockOut")
+        .eq("driverId", driver.id)
+        .eq("status", "CLOSED")
+        .order("clockOut", { ascending: false })
+        .limit(5)
+    ),
   ]);
 
   const greetingHour = new Date().getHours();

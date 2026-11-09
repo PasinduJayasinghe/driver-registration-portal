@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { db, unwrap, unwrapAll } from "@/lib/db";
 import PayrollTable from "@/components/admin/PayrollTable";
 import AddPayrollButton from "@/components/admin/AddPayrollButton";
 
@@ -49,59 +49,66 @@ export default async function PayrollPage({ searchParams }) {
   const monthNum = month ? Number(month) : null;
   const yearNum = year ? Number(year) : null;
 
-  const where = {
-    ...(activeTab.status ? { status: activeTab.status } : {}),
-    ...(monthNum && monthNum >= 1 && monthNum <= 12 ? { periodMonth: monthNum } : {}),
-    ...(yearNum && yearNum >= 2000 && yearNum <= 2100 ? { periodYear: yearNum } : {}),
-    ...(employeeId ? { driverId: employeeId } : {}),
+  // One filter set, shared by the table and the summary below.
+  const filters = {
+    status: activeTab.status ?? null,
+    periodMonth: monthNum && monthNum >= 1 && monthNum <= 12 ? monthNum : null,
+    periodYear: yearNum && yearNum >= 2000 && yearNum <= 2100 ? yearNum : null,
+    driverId: employeeId || null,
   };
+
+  let recordsQuery = db()
+    .from("Payroll")
+    // Explicit columns rather than *: the table below uses a fixed set of
+    // fields, so there's no reason to ship every Payroll column.
+    .select(
+      `id, driverId, periodMonth, periodYear, basicSalary, allowances,
+       deductions, netSalary, status, paidDate, notes,
+       driver:Driver(id, fullName, employeeId)`
+    );
+  for (const [column, value] of Object.entries(filters)) {
+    if (value != null) recordsQuery = recordsQuery.eq(column, value);
+  }
 
   const page = Math.max(1, Number(params.page) || 1);
   const PAGE_SIZE = 100;
 
-  const [records, employees, aggregate] = await Promise.all([
-    prisma.payroll.findMany({
-      where,
-      orderBy: [{ periodYear: "desc" }, { periodMonth: "desc" }, { createdAt: "desc" }],
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-      // Explicit select rather than include: the table below uses a fixed set
-      // of fields, so there's no reason to ship every Payroll column over a
-      // long-haul connection.
-      select: {
-        id: true,
-        driverId: true,
-        periodMonth: true,
-        periodYear: true,
-        basicSalary: true,
-        allowances: true,
-        deductions: true,
-        netSalary: true,
-        status: true,
-        paidDate: true,
-        notes: true,
-        driver: { select: { id: true, fullName: true, employeeId: true } },
-      },
-    }),
-    prisma.driver.findMany({
-      where: { status: "APPROVED" },
-      orderBy: { fullName: "asc" },
-      select: { id: true, fullName: true, employeeId: true },
-    }),
-    // Must use the same `where` as the table above, otherwise the summary tiles
-    // contradict the rows on screen whenever a filter is active.
-    prisma.payroll.aggregate({
-      _sum: { netSalary: true },
-      _count: { _all: true },
-      where,
-    }),
+  const [records, employees, summary] = await Promise.all([
+    unwrap(
+      recordsQuery
+        .order("periodYear", { ascending: false })
+        .order("periodMonth", { ascending: false })
+        .order("createdAt", { ascending: false })
+        .order("id")
+        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1)
+    ),
+    unwrapAll((opts) =>
+      db()
+        .from("Driver")
+        .select("id, fullName, employeeId", opts)
+        .eq("status", "APPROVED")
+        .order("fullName")
+        .order("id")
+    ),
+    // Must use the same filters as the table above, otherwise the summary
+    // tiles contradict the rows on screen whenever a filter is active.
+    unwrap(
+      db()
+        .rpc("payroll_summary", {
+          p_status: filters.status,
+          p_period_month: filters.periodMonth,
+          p_period_year: filters.periodYear,
+          p_driver_id: filters.driverId,
+        })
+        .single()
+    ),
   ]);
 
-  const totalNet = Number(aggregate?._sum?.netSalary ?? 0);
-  // Counted across the whole filter, not just this page — the aggregate above
-  // deliberately shares `where` with the table query, so it doubles as the
-  // pagination total without a separate count().
-  const totalCount = aggregate?._count?._all ?? 0;
+  const totalNet = Number(summary?.totalNet ?? 0);
+  // Counted across the whole filter, not just this page — the summary above
+  // deliberately shares the filters with the table query, so it doubles as
+  // the pagination total without a separate count.
+  const totalCount = Number(summary?.totalCount ?? 0);
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   const dateFmt = new Intl.DateTimeFormat("en-US", {

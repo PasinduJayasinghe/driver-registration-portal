@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
+import { db, unwrap, getDriverCounts } from "@/lib/db";
 import Tabs from "@/components/ui/Tabs";
 import Pill, { StatusPill, InterviewOutcomePill } from "@/components/ui/Pill";
 import PipelineActions from "@/components/admin/PipelineActions";
@@ -202,64 +202,42 @@ export default async function RequestsPage({ searchParams }) {
   const page = Math.max(1, Number(params.page) || 1);
   const PAGE_SIZE = 100;
 
-  const where = activeTab.status ? { status: activeTab.status } : {};
+  let driversQuery = db()
+    .from("Driver")
+    .select(
+      `id, fullName, employeeId, contactNumber, email, address, jobRole, status,
+       createdAt, stageChangedAt, reviewedByEmail, nationality,
+       yearsOfExperience, licenceNumber, licenceType,
+       interviews:Interview(id, scheduledAt, durationMins, mode, location,
+         interviewerEmail, outcome, notes)`
+    )
+    // Most recently created interview is the current one. Ordering by
+    // createdAt rather than scheduledAt matters after a reschedule, where a
+    // cancelled slot can sit later in the calendar than the live one.
+    .order("createdAt", { referencedTable: "interviews", ascending: false })
+    .limit(1, { referencedTable: "interviews" });
+  if (activeTab.status) {
+    // Within a stage, the longest-waiting candidate is the most urgent, so
+    // ordering is oldest-first by stage entry. Falls back to createdAt for
+    // rows that predate the pipeline and have no stageChangedAt.
+    driversQuery = driversQuery
+      .eq("status", activeTab.status)
+      .order("stageChangedAt", { ascending: true })
+      .order("createdAt", { ascending: true });
+  } else {
+    driversQuery = driversQuery.order("createdAt", { ascending: false });
+  }
+
   const [drivers, counts] = await Promise.all([
-    prisma.driver.findMany({
-      where,
-      // Within a stage, the longest-waiting candidate is the most urgent, so
-      // ordering is oldest-first by stage entry. Falls back to createdAt for
-      // rows that predate the pipeline and have no stageChangedAt.
-      orderBy: activeTab.status
-        ? [{ stageChangedAt: "asc" }, { createdAt: "asc" }]
-        : [{ createdAt: "desc" }],
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-      select: {
-        id: true,
-        fullName: true,
-        employeeId: true,
-        contactNumber: true,
-        email: true,
-        address: true,
-        jobRole: true,
-        status: true,
-        createdAt: true,
-        stageChangedAt: true,
-        reviewedByEmail: true,
-        nationality: true,
-        yearsOfExperience: true,
-        licenceNumber: true,
-        licenceType: true,
-        // Most recently created interview is the current one. Ordering by
-        // createdAt rather than scheduledAt matters after a reschedule, where a
-        // cancelled slot can sit later in the calendar than the live one.
-        interviews: {
-          orderBy: { createdAt: "desc" },
-          take: 1,
-          select: {
-            id: true,
-            scheduledAt: true,
-            durationMins: true,
-            mode: true,
-            location: true,
-            interviewerEmail: true,
-            outcome: true,
-            notes: true,
-          },
-        },
-      },
-    }),
-    prisma.driver.groupBy({
-      by: ["status"],
-      _count: { _all: true },
-    }),
+    unwrap(
+      driversQuery
+        .order("id")
+        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1)
+    ),
+    getDriverCounts(),
   ]);
 
-  const countByStatus = counts.reduce((acc, c) => {
-    acc[c.status] = c._count._all;
-    return acc;
-  }, {});
-  const total = counts.reduce((sum, c) => sum + c._count._all, 0);
+  const { byStatus: countByStatus, total } = counts;
 
   const totalMatching = activeTab.status
     ? countByStatus[activeTab.status] ?? 0

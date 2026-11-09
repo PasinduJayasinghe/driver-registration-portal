@@ -1,9 +1,8 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { db, unwrap, UNIQUE_VIOLATION } from "@/lib/db";
 import { createEmployeeWithAutoId } from "@/lib/employee-id";
-import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 import { requireAdmin, CLOCKABLE_ROLES } from "@/lib/auth";
 
 const JOB_ROLES = new Set(["driver", "sri_lankan_staff", "manager"]);
@@ -18,37 +17,39 @@ function ok(message) {
   return { ok: true, message };
 }
 
+// Status change plus its audit event, in one database transaction (see
+// apply_driver_transition in supabase/migrations). The current status is passed
+// as the expected one, so a concurrent move fails instead of being overwritten.
+async function directStageChange({ id, toStatus, actorEmail, note, review }) {
+  const existing = await unwrap(
+    db().from("Driver").select("status").eq("id", id).maybeSingle()
+  );
+  if (!existing) throw new Error("Candidate not found.");
+  await unwrap(
+    db().rpc("apply_driver_transition", {
+      p_driver_id: id,
+      p_expected_status: existing.status,
+      p_to_status: toStatus,
+      p_actor_email: actorEmail,
+      p_note: note,
+      p_review: review,
+    })
+  );
+}
+
 async function updateStatus(id, status) {
   const reviewer = await requireAdmin();
   // Read the current stage first so the audit event records where they came
   // from. These legacy actions bypass the pipeline's transition table by
   // design — they are the admin's direct-decision escape hatch — but they must
   // still leave a trail, or the stage history would have holes.
-  const existing = await prisma.driver.findUnique({
-    where: { id },
-    select: { status: true },
+  await directStageChange({
+    id,
+    toStatus: status,
+    actorEmail: reviewer,
+    note: "Direct decision",
+    review: "set",
   });
-  const now = new Date();
-  await prisma.$transaction([
-    prisma.driver.update({
-      where: { id },
-      data: {
-        status,
-        stageChangedAt: now,
-        reviewedAt: now,
-        reviewedByEmail: reviewer,
-      },
-    }),
-    prisma.driverStageEvent.create({
-      data: {
-        driverId: id,
-        fromStatus: existing?.status ?? null,
-        toStatus: status,
-        actorEmail: reviewer,
-        note: "Direct decision",
-      },
-    }),
-  ]);
   revalidatePath("/admin");
   revalidatePath("/admin/requests");
   revalidatePath("/admin/employees");
@@ -70,30 +71,13 @@ export async function resetDriver(formData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   const reviewer = await requireAdmin();
-  const existing = await prisma.driver.findUnique({
-    where: { id },
-    select: { status: true },
+  await directStageChange({
+    id,
+    toStatus: "PENDING",
+    actorEmail: reviewer,
+    note: "Reopened",
+    review: "clear",
   });
-  await prisma.$transaction([
-    prisma.driver.update({
-      where: { id },
-      data: {
-        status: "PENDING",
-        stageChangedAt: new Date(),
-        reviewedAt: null,
-        reviewedByEmail: null,
-      },
-    }),
-    prisma.driverStageEvent.create({
-      data: {
-        driverId: id,
-        fromStatus: existing?.status ?? null,
-        toStatus: "PENDING",
-        actorEmail: reviewer,
-        note: "Reopened",
-      },
-    }),
-  ]);
   revalidatePath("/admin");
   revalidatePath("/admin/requests");
   revalidatePath("/admin/employees");
@@ -103,7 +87,7 @@ export async function deleteDriver(formData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   await requireAdmin();
-  await prisma.driver.delete({ where: { id } });
+  await unwrap(db().from("Driver").delete().eq("id", id));
   revalidatePath("/admin");
   revalidatePath("/admin/requests");
   revalidatePath("/admin/employees");
@@ -198,7 +182,9 @@ export async function createPayrollAction(_prevState, formData) {
     return fail("Please fix the highlighted fields.", fieldErrors);
   }
 
-  const driver = await prisma.driver.findUnique({ where: { id: driverId } });
+  const driver = await unwrap(
+    db().from("Driver").select("id").eq("id", driverId).maybeSingle()
+  );
   if (!driver) {
     return fail("Selected employee no longer exists.", { driverId: "Not found." });
   }
@@ -207,8 +193,8 @@ export async function createPayrollAction(_prevState, formData) {
   const paidDate = paidDateRaw ? new Date(paidDateRaw) : null;
 
   try {
-    await prisma.payroll.create({
-      data: {
+    await unwrap(
+      db().from("Payroll").insert({
         driverId,
         periodMonth,
         periodYear,
@@ -219,10 +205,10 @@ export async function createPayrollAction(_prevState, formData) {
         status,
         paidDate,
         notes: notes || null,
-      },
-    });
+      })
+    );
   } catch (error) {
-    if (error?.code === "P2002") {
+    if (error?.code === UNIQUE_VIOLATION) {
       return fail(
         "A payroll record already exists for this employee and month.",
         { periodMonth: "Duplicate period." }
@@ -275,22 +261,28 @@ export async function updatePayrollAction(_prevState, formData) {
   const paidDate = paidDateRaw ? new Date(paidDateRaw) : null;
 
   try {
-    await prisma.payroll.update({
-      where: { id },
-      data: {
-        periodMonth,
-        periodYear,
-        basicSalary,
-        allowances,
-        deductions,
-        netSalary,
-        status,
-        paidDate,
-        notes: notes || null,
-      },
-    });
+    const updated = await unwrap(
+      db()
+        .from("Payroll")
+        .update({
+          periodMonth,
+          periodYear,
+          basicSalary,
+          allowances,
+          deductions,
+          netSalary,
+          status,
+          paidDate,
+          notes: notes || null,
+        })
+        .eq("id", id)
+        .select("id")
+    );
+    if (updated.length === 0) {
+      return fail("That payroll record no longer exists.");
+    }
   } catch (error) {
-    if (error?.code === "P2002") {
+    if (error?.code === UNIQUE_VIOLATION) {
       return fail(
         "Another payroll record already exists for that period.",
         { periodMonth: "Duplicate period." }
@@ -308,7 +300,7 @@ export async function deletePayrollAction(formData) {
   await requireAdmin();
   const id = String(formData.get("id") ?? "").trim();
   if (!id) return;
-  await prisma.payroll.delete({ where: { id } });
+  await unwrap(db().from("Payroll").delete().eq("id", id));
   revalidatePath("/admin/payroll");
 }
 
@@ -316,10 +308,12 @@ export async function markPayrollPaidAction(formData) {
   await requireAdmin();
   const id = String(formData.get("id") ?? "").trim();
   if (!id) return;
-  await prisma.payroll.update({
-    where: { id },
-    data: { status: "PAID", paidDate: new Date() },
-  });
+  await unwrap(
+    db()
+      .from("Payroll")
+      .update({ status: "PAID", paidDate: new Date() })
+      .eq("id", id)
+  );
   revalidatePath("/admin/payroll");
 }
 
@@ -348,15 +342,12 @@ export async function adminUpdateTimeEntryAction(_prevState, formData) {
 
   const status = clockOut ? "CLOSED" : "OPEN";
 
-  await prisma.timeEntry.update({
-    where: { id },
-    data: {
-      clockIn,
-      clockOut,
-      status,
-      notes: notes || null,
-    },
-  });
+  await unwrap(
+    db()
+      .from("TimeEntry")
+      .update({ clockIn, clockOut, status, notes: notes || null })
+      .eq("id", id)
+  );
 
   revalidatePath("/admin/time-entries");
   revalidatePath("/admin/reports");
@@ -369,7 +360,7 @@ export async function adminDeleteTimeEntryAction(formData) {
   await requireAdmin();
   const id = String(formData.get("id") ?? "").trim();
   if (!id) return;
-  await prisma.timeEntry.delete({ where: { id } });
+  await unwrap(db().from("TimeEntry").delete().eq("id", id));
   revalidatePath("/admin/time-entries");
   revalidatePath("/admin/reports");
 }
@@ -377,17 +368,6 @@ export async function adminDeleteTimeEntryAction(formData) {
 // ----- "Set up login" (admin) -----
 // Creates or links a Supabase auth user for an employee and sends them a
 // password-recovery email so they can set their own password.
-
-function getSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) {
-    throw new Error("Supabase admin env vars are not configured.");
-  }
-  return createSupabaseAdmin(url, serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-}
 
 export async function adminSetupEmployeeLoginAction(_prevState, formData) {
   await requireAdmin();
@@ -398,20 +378,20 @@ export async function adminSetupEmployeeLoginAction(_prevState, formData) {
     return fail("Please enter a valid email address.");
   }
 
-  const driver = await prisma.driver.findUnique({ where: { id: driverId } });
+  const driver = await unwrap(
+    db()
+      .from("Driver")
+      .select("id, fullName, jobRole, userId")
+      .eq("id", driverId)
+      .maybeSingle()
+  );
   if (!driver) return fail("Employee not found.");
   if (!CLOCKABLE_ROLES.has(driver.jobRole)) {
     return fail("Only office staff and managers can have login access.");
   }
 
-  let admin;
-  try {
-    admin = getSupabaseAdmin();
-  } catch (err) {
-    return fail(
-      "Server is missing the Supabase service-role key. Add SUPABASE_SERVICE_ROLE_KEY to your env."
-    );
-  }
+  // The same service-role client used for data also carries the auth admin API.
+  const admin = db();
 
   let userId = driver.userId;
   if (!userId) {
@@ -446,10 +426,9 @@ export async function adminSetupEmployeeLoginAction(_prevState, formData) {
     }
   }
 
-  await prisma.driver.update({
-    where: { id: driverId },
-    data: { email, userId },
-  });
+  await unwrap(
+    db().from("Driver").update({ email, userId }).eq("id", driverId)
+  );
 
   // Send a password-recovery email so the employee can set their own password.
   try {

@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
-import { getAuthContext, CLOCKABLE_ROLES } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { officeMonthRange } from "@/lib/time";
+import { getAuthContext } from "@/lib/auth";
+import { getMonthlyTimeData } from "@/lib/time-report-data";
 import TimeReportPdf from "@/lib/pdf/TimeReport";
 
 
@@ -25,40 +24,17 @@ export async function GET(request) {
     return new NextResponse("Invalid month/year", { status: 400 });
   }
 
-  // The role filter applies whether or not employeeId is given: requesting a
-  // specific employee must not expose records for roles the report never covers.
-  const employees = await prisma.driver.findMany({
-    where: {
-      status: "APPROVED",
-      jobRole: { in: [...CLOCKABLE_ROLES] },
-      ...(employeeId ? { id: employeeId } : {}),
-    },
-    orderBy: { fullName: "asc" },
-    select: { id: true, fullName: true, employeeId: true },
+  // Same query as the reports page and CSV, so a late-night shift lands in the
+  // same month in all three.
+  const { employees, entries } = await getMonthlyTimeData({
+    year,
+    month,
+    employeeId,
   });
 
   if (employeeId && employees.length === 0) {
     return new NextResponse("Employee not found", { status: 404 });
   }
-
-  // Office-local month bounds; see officeMonthRange in lib/time.js. UTC bounds
-  // would put a late-night shift in a different month than the CSV and the
-  // reports page show it in.
-  const { start, end } = officeMonthRange(year, month);
-  const entries = await prisma.timeEntry.findMany({
-    where: {
-      driverId: { in: employees.map((e) => e.id) },
-      clockIn: { gte: start, lt: end },
-    },
-    orderBy: { clockIn: "asc" },
-    select: {
-      driverId: true,
-      clockIn: true,
-      clockOut: true,
-      status: true,
-      notes: true,
-    },
-  });
 
   // Sanitize for the PDF: convert dates to ISO strings.
   const serialized = entries.map((e) => ({

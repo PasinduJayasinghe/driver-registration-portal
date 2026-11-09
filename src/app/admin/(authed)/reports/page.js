@@ -1,13 +1,11 @@
-import { prisma } from "@/lib/prisma";
 import DownloadButtons from "@/components/admin/DownloadButtons";
-import { CLOCKABLE_ROLES } from "@/lib/auth";
+import { getMonthlyTimeData } from "@/lib/time-report-data";
 import {
   daysInMonth,
   formatTime,
   formatDuration,
   durationMs,
   groupEntriesByDay,
-  officeMonthRange,
   MONTH_NAMES,
 } from "@/lib/time";
 
@@ -21,35 +19,11 @@ export default async function ReportsPage({ searchParams }) {
   const year = Number(params.year) || now.getFullYear();
   const employeeId = typeof params.employeeId === "string" ? params.employeeId : "";
 
-  // Filter by role in the query rather than fetching every approved employee
-  // and discarding most of them in JS.
-  const clockableEmployees = await prisma.driver.findMany({
-    where: {
-      status: "APPROVED",
-      jobRole: { in: [...CLOCKABLE_ROLES] },
-      ...(employeeId ? { id: employeeId } : {}),
-    },
-    orderBy: { fullName: "asc" },
-    select: { id: true, fullName: true, employeeId: true },
-  });
-
-  // Month bounds must be office-local: entries are grouped into days in
-  // Asia/Colombo, so UTC bounds would pull the wrong shifts in at each edge.
-  const { start: monthStart, end: monthEnd } = officeMonthRange(year, month);
-
-  const entries = await prisma.timeEntry.findMany({
-    where: {
-      driverId: { in: clockableEmployees.map((e) => e.id) },
-      clockIn: { gte: monthStart, lt: monthEnd },
-    },
-    orderBy: { clockIn: "asc" },
-    select: {
-      driverId: true,
-      clockIn: true,
-      clockOut: true,
-      status: true,
-      notes: true,
-    },
+  // Shared with the CSV and PDF downloads so all three always agree.
+  const { employees: clockableEmployees, entries } = await getMonthlyTimeData({
+    year,
+    month,
+    employeeId,
   });
 
   const employeeSummaries = buildSummaries(entries, clockableEmployees);

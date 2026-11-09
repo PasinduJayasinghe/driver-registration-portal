@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { db, unwrapAll } from "@/lib/db";
 import { getAuthContext } from "@/lib/auth";
 import {
   formatTime,
@@ -26,19 +26,16 @@ export default async function HistoryPage({ searchParams }) {
   // Office-local bounds so a late-night shift lands in the month it's shown in.
   const { start, end } = officeMonthRange(year, month);
 
-  const entries = await prisma.timeEntry.findMany({
-    where: {
-      driverId: driver.id,
-      clockIn: { gte: start, lt: end },
-    },
-    orderBy: { clockIn: "desc" },
-    select: {
-      id: true,
-      clockIn: true,
-      clockOut: true,
-      notes: true,
-    },
-  });
+  const entries = await unwrapAll((opts) =>
+    db()
+      .from("TimeEntry")
+      .select("id, clockIn, clockOut, notes", opts)
+      .eq("driverId", driver.id)
+      .gte("clockIn", start.toISOString())
+      .lt("clockIn", end.toISOString())
+      .order("clockIn", { ascending: false })
+      .order("id")
+  );
 
   const totalMs = entries.reduce(
     (sum, e) => sum + (durationMs(e.clockIn, e.clockOut) ?? 0),

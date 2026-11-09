@@ -8,8 +8,8 @@
 // submitted — otherwise a crafted request could jump a candidate straight to
 // APPROVED, which is the state that grants clock access and payroll.
 
-import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { db, unwrap } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { canTransition, stageLabel, STAGES } from "@/lib/pipeline";
 import { officeLocalToUtc } from "@/lib/time";
@@ -24,6 +24,12 @@ function fail(message, fieldErrors) {
 
 function ok(message) {
   return { ok: true, message };
+}
+
+function findCandidate(id) {
+  return unwrap(
+    db().from("Driver").select("id, status").eq("id", id).maybeSingle()
+  );
 }
 
 // A stage move touches the candidate list, the dashboard funnel, and — when
@@ -43,6 +49,10 @@ function revalidatePipeline() {
  *
  * `allowSameStage` covers rescheduling, where the candidate legitimately stays
  * at INTERVIEW_SCHEDULED while the underlying booking changes.
+ *
+ * `interviewOps` are extra apply_driver_transition parameters (p_cancel_*,
+ * p_complete_*, p_schedule_*) for interview changes that must commit together
+ * with the stage move. See supabase/migrations/20261107000000_move_off_prisma.sql.
  */
 async function applyTransition({
   id,
@@ -50,12 +60,15 @@ async function applyTransition({
   note,
   actorEmail,
   allowSameStage = false,
-  extraOps = [],
+  interviewOps = {},
 }) {
-  const driver = await prisma.driver.findUnique({
-    where: { id },
-    select: { id: true, status: true, fullName: true },
-  });
+  const driver = await unwrap(
+    db()
+      .from("Driver")
+      .select("id, status, fullName")
+      .eq("id", id)
+      .maybeSingle()
+  );
   if (!driver) return fail("Candidate not found.");
 
   const from = driver.status;
@@ -66,34 +79,38 @@ async function applyTransition({
     );
   }
 
-  const now = new Date();
-  const data = { status: toStatus, stageChangedAt: now };
-
   // reviewedAt/reviewedByEmail continue to mean "who made the final call", which
-  // is what /admin/employees already renders. Only the terminal stages set them.
+  // is what /admin/employees already renders. Only the terminal stages set them,
+  // and reopening clears the previous decision, matching the old resetDriver.
+  let review = "keep";
   if (toStatus === STAGES.APPROVED || toStatus === STAGES.REJECTED) {
-    data.reviewedAt = now;
-    data.reviewedByEmail = actorEmail;
-  }
-  // Reopening clears the previous decision, matching the old resetDriver.
-  if (toStatus === STAGES.PENDING) {
-    data.reviewedAt = null;
-    data.reviewedByEmail = null;
+    review = "set";
+  } else if (toStatus === STAGES.PENDING) {
+    review = "clear";
   }
 
-  await prisma.$transaction([
-    prisma.driver.update({ where: { id }, data }),
-    prisma.driverStageEvent.create({
-      data: {
-        driverId: id,
-        fromStatus: from,
-        toStatus,
-        actorEmail,
-        note: note || null,
-      },
-    }),
-    ...extraOps,
-  ]);
+  try {
+    await unwrap(
+      db().rpc("apply_driver_transition", {
+        p_driver_id: id,
+        // The stage the move was validated against. If it changed since the
+        // read above, the database rejects the whole call.
+        p_expected_status: from,
+        p_to_status: toStatus,
+        p_actor_email: actorEmail,
+        p_note: note || null,
+        p_review: review,
+        ...interviewOps,
+      })
+    );
+  } catch (error) {
+    if (error?.hint === "stage_conflict") {
+      return fail(
+        `${driver.fullName} was just moved by someone else. Refresh and try again.`
+      );
+    }
+    throw error;
+  }
 
   revalidatePipeline();
   return ok(`${driver.fullName} moved to ${stageLabel(toStatus)}.`);
@@ -153,10 +170,7 @@ export async function scheduleInterviewAction(_prevState, formData) {
     return fail("Please fix the highlighted fields.", fieldErrors);
   }
 
-  const driver = await prisma.driver.findUnique({
-    where: { id: driverId },
-    select: { id: true, status: true },
-  });
+  const driver = await findCandidate(driverId);
   if (!driver) return fail("Candidate not found.");
 
   const isReschedule = driver.status === STAGES.INTERVIEW_SCHEDULED;
@@ -175,25 +189,16 @@ export async function scheduleInterviewAction(_prevState, formData) {
     note: isReschedule ? "Interview rescheduled" : "Interview scheduled",
     actorEmail,
     allowSameStage: true,
-    extraOps: [
+    interviewOps: {
       // Supersede any live booking before adding the new one.
-      prisma.interview.updateMany({
-        where: { driverId, outcome: "PENDING" },
-        data: { outcome: "CANCELLED", completedAt: new Date() },
-      }),
-      prisma.interview.create({
-        data: {
-          driverId,
-          scheduledAt,
-          durationMins,
-          mode,
-          location: location || null,
-          interviewerEmail: interviewerEmail || null,
-          notes: notes || null,
-          scheduledByEmail: actorEmail,
-        },
-      }),
-    ],
+      p_cancel_open_interviews: true,
+      p_schedule_at: scheduledAt.toISOString(),
+      p_duration_mins: durationMins,
+      p_mode: mode,
+      p_location: location || null,
+      p_interviewer_email: interviewerEmail || null,
+      p_interview_notes: notes || null,
+    },
   });
 }
 
@@ -219,20 +224,22 @@ export async function recordInterviewOutcomeAction(_prevState, formData) {
     });
   }
 
-  const driver = await prisma.driver.findUnique({
-    where: { id: driverId },
-    select: { id: true, status: true },
-  });
+  const driver = await findCandidate(driverId);
   if (!driver) return fail("Candidate not found.");
   if (driver.status !== STAGES.INTERVIEW_SCHEDULED) {
     return fail("This candidate has no interview awaiting an outcome.");
   }
 
-  const open = await prisma.interview.findFirst({
-    where: { driverId, outcome: "PENDING" },
-    orderBy: { scheduledAt: "desc" },
-    select: { id: true, notes: true },
-  });
+  const open = await unwrap(
+    db()
+      .from("Interview")
+      .select("id, notes")
+      .eq("driverId", driverId)
+      .eq("outcome", "PENDING")
+      .order("scheduledAt", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+  );
 
   // Append rather than overwrite — the note written when the interview was
   // booked (location, what to cover) is still worth keeping next to the
@@ -241,25 +248,20 @@ export async function recordInterviewOutcomeAction(_prevState, formData) {
     ? [open?.notes, notes].filter(Boolean).join("\n\n")
     : open?.notes ?? null;
 
-  const extraOps = open
-    ? [
-        prisma.interview.update({
-          where: { id: open.id },
-          data: {
-            outcome,
-            completedAt: new Date(),
-            notes: mergedNotes,
-          },
-        }),
-      ]
-    : [];
+  const interviewOps = open
+    ? {
+        p_complete_interview_id: open.id,
+        p_complete_outcome: outcome,
+        p_complete_notes: mergedNotes,
+      }
+    : {};
 
   return applyTransition({
     id: driverId,
     toStatus: STAGES.INTERVIEWED,
     note: `Interview outcome: ${outcome}`,
     actorEmail,
-    extraOps,
+    interviewOps,
   });
 }
 
@@ -278,11 +280,6 @@ export async function cancelInterviewAction(formData) {
     toStatus: STAGES.SHORTLISTED,
     note: "Interview cancelled",
     actorEmail,
-    extraOps: [
-      prisma.interview.updateMany({
-        where: { driverId, outcome: "PENDING" },
-        data: { outcome: "CANCELLED", completedAt: new Date() },
-      }),
-    ],
+    interviewOps: { p_cancel_open_interviews: true },
   });
 }

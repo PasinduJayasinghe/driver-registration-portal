@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { db, unwrapAll, unwrapCount, unwrapWithCount } from "@/lib/db";
 import TimeEntriesTable from "@/components/admin/TimeEntriesTable";
 import Tabs from "@/components/ui/Tabs";
 import { MONTH_NAMES, officeMonthRange } from "@/lib/time";
@@ -49,61 +49,66 @@ export default async function TimeEntriesPage({ searchParams }) {
 
   // Every filter except the status tab. Counts are derived from this so each
   // tab shows its true total rather than a count of the current tab's rows.
-  const baseWhere = {
-    ...(employeeId ? { driverId: employeeId } : {}),
-    ...(range ? { clockIn: { gte: range.start, lt: range.end } } : {}),
+  // The driver embed is `!inner` so the scope filter drops entries rather than
+  // just blanking their embedded driver.
+  function withBaseFilters(query) {
+    if (employeeId) query = query.eq("driverId", employeeId);
+    if (range) {
+      query = query
+        .gte("clockIn", range.start.toISOString())
+        .lt("clockIn", range.end.toISOString());
+    }
     // Scope is applied in the query instead of discarding rows after the fact,
-    // which previously let the `take` limit be consumed by filtered-out rows.
-    ...(scope === "office"
-      ? { driver: { jobRole: { in: [...CLOCKABLE_ROLES] } } }
-      : {}),
-  };
+    // which previously let the page limit be consumed by filtered-out rows.
+    if (scope === "office") {
+      query = query.in("driver.jobRole", [...CLOCKABLE_ROLES]);
+    }
+    return query;
+  }
 
-  const where = {
-    ...baseWhere,
-    ...(activeTab.status ? { status: activeTab.status } : {}),
-  };
+  // Aggregate in the database so counts stay correct beyond one page.
+  function countWithStatus(status) {
+    return unwrapCount(
+      withBaseFilters(
+        db()
+          .from("TimeEntry")
+          .select("id, driver:Driver!inner(jobRole)", {
+            count: "exact",
+            head: true,
+          })
+      ).eq("status", status)
+    );
+  }
 
-  const [entries, employees, statusCounts, totalMatching] = await Promise.all([
-    prisma.timeEntry.findMany({
-      where,
-      orderBy: { clockIn: "desc" },
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-      select: {
-        id: true,
-        clockIn: true,
-        clockOut: true,
-        status: true,
-        notes: true,
-        driver: {
-          select: {
-            id: true,
-            fullName: true,
-            employeeId: true,
-            jobRole: true,
-          },
-        },
-      },
+  let entriesQuery = withBaseFilters(
+    db()
+      .from("TimeEntry")
+      .select(
+        "id, clockIn, clockOut, status, notes, driver:Driver!inner(id, fullName, employeeId, jobRole)",
+        { count: "exact" }
+      )
+  );
+  if (activeTab.status) entriesQuery = entriesQuery.eq("status", activeTab.status);
+
+  const [entriesResult, employees, openCount, closedCount] = await Promise.all([
+    unwrapWithCount(
+      entriesQuery
+        .order("clockIn", { ascending: false })
+        .order("id")
+        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1)
+    ),
+    unwrapAll((opts) => {
+      let query = db()
+        .from("Driver")
+        .select("id, fullName, employeeId", opts)
+        .eq("status", "APPROVED");
+      if (scope === "office") query = query.in("jobRole", [...CLOCKABLE_ROLES]);
+      return query.order("fullName").order("id");
     }),
-    prisma.driver.findMany({
-      where: {
-        status: "APPROVED",
-        ...(scope === "office"
-          ? { jobRole: { in: [...CLOCKABLE_ROLES] } }
-          : {}),
-      },
-      orderBy: { fullName: "asc" },
-      select: { id: true, fullName: true, employeeId: true },
-    }),
-    // Aggregate in the database so counts stay correct beyond one page.
-    prisma.timeEntry.groupBy({
-      by: ["status"],
-      where: baseWhere,
-      _count: { _all: true },
-    }),
-    prisma.timeEntry.count({ where }),
+    countWithStatus("OPEN"),
+    countWithStatus("CLOSED"),
   ]);
+  const { rows: entries, count: totalMatching } = entriesResult;
 
   const filteredEmployees = employees;
 
@@ -116,10 +121,6 @@ export default async function TimeEntriesPage({ searchParams }) {
     driver: e.driver,
   }));
 
-  const openCount =
-    statusCounts.find((c) => c.status === "OPEN")?._count?._all ?? 0;
-  const closedCount =
-    statusCounts.find((c) => c.status === "CLOSED")?._count?._all ?? 0;
   const counts = {
     all: openCount + closedCount,
     open: openCount,

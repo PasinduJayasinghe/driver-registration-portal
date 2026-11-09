@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { db, unwrap } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { addHours, AUTO_CLOSE_HOURS } from "@/lib/time";
 import { requireEmployee } from "@/lib/auth";
@@ -13,6 +13,18 @@ async function getCurrentDriver() {
   } catch {
     return null;
   }
+}
+
+function findOpenEntry(driverId) {
+  return unwrap(
+    db()
+      .from("TimeEntry")
+      .select("id")
+      .eq("driverId", driverId)
+      .eq("status", "OPEN")
+      .limit(1)
+      .maybeSingle()
+  );
 }
 
 function fail(message) {
@@ -38,31 +50,33 @@ export async function autoCloseStaleEntries() {
 
   // Let the database do the filtering — the common case is zero rows, which
   // the [driverId, clockIn] index answers without reading any.
-  const staleEntries = await prisma.timeEntry.findMany({
-    where: {
-      driverId: driver.id,
-      status: "OPEN",
-      clockIn: { lt: staleBefore },
-    },
-    select: { id: true, clockIn: true, notes: true },
-  });
+  const staleEntries = await unwrap(
+    db()
+      .from("TimeEntry")
+      .select("id, clockIn, notes")
+      .eq("driverId", driver.id)
+      .eq("status", "OPEN")
+      .lt("clockIn", staleBefore.toISOString())
+  );
 
   if (staleEntries.length === 0) return;
 
   // Each row needs its own clockOut (clockIn + 9h), so they can't collapse into
-  // a single updateMany — but they don't need to run one after another either.
+  // a single bulk update — but they don't need to run one after another either.
   await Promise.all(
     staleEntries.map((entry) =>
-      prisma.timeEntry.update({
-        where: { id: entry.id },
-        data: {
-          status: "CLOSED",
-          clockOut: addHours(entry.clockIn, AUTO_CLOSE_HOURS),
-          notes: entry.notes
-            ? `${entry.notes}\nAuto-closed: forgot to clock out`
-            : "Auto-closed: forgot to clock out",
-        },
-      })
+      unwrap(
+        db()
+          .from("TimeEntry")
+          .update({
+            status: "CLOSED",
+            clockOut: addHours(entry.clockIn, AUTO_CLOSE_HOURS),
+            notes: entry.notes
+              ? `${entry.notes}\nAuto-closed: forgot to clock out`
+              : "Auto-closed: forgot to clock out",
+          })
+          .eq("id", entry.id)
+      )
     )
   );
 }
@@ -74,20 +88,18 @@ export async function clockInAction(_prevState, formData) {
 
   await autoCloseStaleEntries();
 
-  const existing = await prisma.timeEntry.findFirst({
-    where: { driverId: driver.id, status: "OPEN" },
-  });
+  const existing = await findOpenEntry(driver.id);
   if (existing) {
     return fail("You're already clocked in. Clock out first.");
   }
 
-  await prisma.timeEntry.create({
-    data: {
+  await unwrap(
+    db().from("TimeEntry").insert({
       driverId: driver.id,
       clockIn: new Date(),
       status: "OPEN",
-    },
-  });
+    })
+  );
 
   revalidatePath("/clock");
   revalidatePath("/history");
@@ -101,20 +113,17 @@ export async function clockOutAction(_prevState, formData) {
   const driver = await getCurrentDriver();
   if (!driver) return fail("You're not signed in.");
 
-  const open = await prisma.timeEntry.findFirst({
-    where: { driverId: driver.id, status: "OPEN" },
-  });
+  const open = await findOpenEntry(driver.id);
   if (!open) {
     return fail("You're not currently clocked in.");
   }
 
-  await prisma.timeEntry.update({
-    where: { id: open.id },
-    data: {
-      clockOut: new Date(),
-      status: "CLOSED",
-    },
-  });
+  await unwrap(
+    db()
+      .from("TimeEntry")
+      .update({ clockOut: new Date(), status: "CLOSED" })
+      .eq("id", open.id)
+  );
 
   revalidatePath("/clock");
   revalidatePath("/history");

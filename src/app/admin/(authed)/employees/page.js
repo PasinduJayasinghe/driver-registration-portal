@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { db, unwrapAll, getDriverCounts, orContains } from "@/lib/db";
 import DeleteEmployeeButton from "@/components/admin/DeleteEmployeeButton";
 import AddEmployeeButton from "@/components/admin/AddEmployeeButton";
 import EmployeeAuthLinkButton from "@/components/admin/EmployeeAuthLinkButton";
@@ -36,48 +36,35 @@ export default async function EmployeesPage({ searchParams }) {
   const q = typeof params.q === "string" ? params.q.trim() : "";
   const activeTab = ROLE_TABS.find((t) => t.key === rawRole) ?? ROLE_TABS[0];
 
-  const where = {
-    status: "APPROVED",
-    ...(activeTab.role ? { jobRole: activeTab.role } : {}),
-    ...(q
-      ? {
-          OR: [
-            { fullName: { contains: q, mode: "insensitive" } },
-            { employeeId: { contains: q, mode: "insensitive" } },
-            { contactNumber: { contains: q } },
-          ],
-        }
-      : {}),
-  };
-
   const [employees, counts] = await Promise.all([
-    prisma.driver.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        fullName: true,
-        employeeId: true,
-        contactNumber: true,
-        email: true,
-        jobRole: true,
-        userId: true,
-        reviewedAt: true,
-        reviewedByEmail: true,
-      },
+    unwrapAll((opts) => {
+      let query = db()
+        .from("Driver")
+        .select(
+          "id, fullName, employeeId, contactNumber, email, jobRole, userId, reviewedAt, reviewedByEmail",
+          opts
+        )
+        .eq("status", "APPROVED");
+      if (activeTab.role) query = query.eq("jobRole", activeTab.role);
+      if (q) {
+        query = query.or(
+          orContains(
+            [
+              ["fullName", "ilike"],
+              ["employeeId", "ilike"],
+              ["contactNumber", "like"],
+            ],
+            q
+          )
+        );
+      }
+      return query.order("createdAt", { ascending: false }).order("id");
     }),
-    prisma.driver.groupBy({
-      by: ["jobRole"],
-      where: { status: "APPROVED" },
-      _count: { _all: true },
-    }),
+    getDriverCounts(),
   ]);
 
-  const countByRole = counts.reduce((acc, c) => {
-    acc[c.jobRole] = c._count._all;
-    return acc;
-  }, {});
-  const totalApproved = counts.reduce((sum, c) => sum + c._count._all, 0);
+  const countByRole = counts.approvedByRole;
+  const totalApproved = counts.byStatus.APPROVED ?? 0;
 
   const dateFmt = new Intl.DateTimeFormat("en-US", {
     month: "short",

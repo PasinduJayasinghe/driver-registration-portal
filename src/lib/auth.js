@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { prisma } from "@/lib/prisma";
+import { db, unwrap } from "@/lib/db";
 import { createClient } from "@/lib/supabase/server";
 
 // Roles that are allowed to clock in/out and use the employee portal.
@@ -49,16 +49,15 @@ export const getAuthContext = cache(async function getAuthContext() {
   const user = await getCurrentUser();
   if (!user) return { user: null, driver: null, isAdmin: false };
 
-  const driver = await prisma.driver.findUnique({
-    where: { userId: user.id },
-    select: {
-      id: true,
-      fullName: true,
-      employeeId: true,
-      jobRole: true,
-      status: true,
-    },
-  });
+  // unwrap() throws on a failed query. That matters here: a missing Driver row
+  // means "admin", so a swallowed error would hand out admin access.
+  const driver = await unwrap(
+    db()
+      .from("Driver")
+      .select("id, fullName, employeeId, jobRole, status")
+      .eq("userId", user.id)
+      .maybeSingle()
+  );
 
   return { user, driver, isAdmin: driver === null };
 });

@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/prisma";
+import { db, unwrap } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
@@ -34,10 +34,9 @@ export async function signIn(_prev, formData) {
 
   // Employee accounts are linked to a Driver row; admins are not. Reject staff
   // here so they never obtain an admin session.
-  const driver = await prisma.driver.findUnique({
-    where: { userId: data.user.id },
-    select: { id: true },
-  });
+  const driver = await unwrap(
+    db().from("Driver").select("id").eq("userId", data.user.id).maybeSingle()
+  );
 
   if (driver) {
     await supabase.auth.signOut();

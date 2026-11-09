@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/prisma";
+import { db, unwrap } from "@/lib/db";
 import { CLOCKABLE_ROLES } from "@/lib/auth";
 
 function fail(message) {
@@ -34,10 +34,13 @@ export async function employeeSignIn(_prevState, formData) {
 
   const userId = data.user.id;
 
-  const driver = await prisma.driver.findUnique({
-    where: { userId },
-    select: { id: true, jobRole: true, status: true },
-  });
+  const driver = await unwrap(
+    db()
+      .from("Driver")
+      .select("id, jobRole, status")
+      .eq("userId", userId)
+      .maybeSingle()
+  );
 
   if (!driver) {
     await supabase.auth.signOut();

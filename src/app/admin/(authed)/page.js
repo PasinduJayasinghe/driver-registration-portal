@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { db, unwrap, getDriverCounts } from "@/lib/db";
 import Link from "next/link";
 import { LiftCard, Stagger, StaggerItem } from "@/components/ui/Motion";
 import Pill, { StatusPill } from "@/components/ui/Pill";
@@ -70,63 +70,48 @@ function StatCard({ label, value, icon, accent, href }) {
 
 export default async function AdminOverviewPage() {
   // One grouped query instead of four separate COUNT(*) round-trips.
-  const [statusCounts, recent, upcomingInterviews, activeCandidates] =
+  const [driverCounts, recent, upcomingInterviews, activeCandidates] =
     await Promise.all([
-      prisma.driver.groupBy({
-        by: ["status"],
-        _count: { _all: true },
-      }),
-      prisma.driver.findMany({
-        orderBy: { createdAt: "desc" },
-        take: 5,
-        select: {
-          id: true,
-          fullName: true,
-          employeeId: true,
-          jobRole: true,
-          status: true,
-          createdAt: true,
-        },
-      }),
+      getDriverCounts(),
+      unwrap(
+        db()
+          .from("Driver")
+          .select("id, fullName, employeeId, jobRole, status, createdAt")
+          .order("createdAt", { ascending: false })
+          .limit(5)
+      ),
       // Live bookings only. Ordered soonest-first so anything overdue surfaces
       // at the top rather than being buried under next month's slots.
-      prisma.interview.findMany({
-        where: { outcome: "PENDING", driver: { status: "INTERVIEW_SCHEDULED" } },
-        orderBy: { scheduledAt: "asc" },
-        take: 6,
-        select: {
-          id: true,
-          scheduledAt: true,
-          mode: true,
-          location: true,
-          driver: { select: { id: true, fullName: true, employeeId: true } },
-        },
-      }),
+      // `!inner` makes the driver filter exclude interviews, not just blank
+      // out their embedded driver.
+      unwrap(
+        db()
+          .from("Interview")
+          .select(
+            "id, scheduledAt, mode, location, driver:Driver!inner(id, fullName, employeeId, status)"
+          )
+          .eq("outcome", "PENDING")
+          .eq("driver.status", "INTERVIEW_SCHEDULED")
+          .order("scheduledAt", { ascending: true })
+          .limit(6)
+      ),
       // Everyone still mid-process. Bounded because the stall check needs each
       // row's own stage threshold, which isn't expressible as a single COUNT.
-      prisma.driver.findMany({
-        where: { status: { in: ACTIVE_STAGES } },
-        orderBy: [{ stageChangedAt: "asc" }, { createdAt: "asc" }],
-        take: 200,
-        select: {
-          id: true,
-          fullName: true,
-          employeeId: true,
-          status: true,
-          stageChangedAt: true,
-          createdAt: true,
-        },
-      }),
+      unwrap(
+        db()
+          .from("Driver")
+          .select("id, fullName, employeeId, status, stageChangedAt, createdAt")
+          .in("status", ACTIVE_STAGES)
+          .order("stageChangedAt", { ascending: true })
+          .order("createdAt", { ascending: true })
+          .limit(200)
+      ),
     ]);
 
-  const countByStatus = statusCounts.reduce((acc, c) => {
-    acc[c.status] = c._count._all;
-    return acc;
-  }, {});
+  const { byStatus: countByStatus, total } = driverCounts;
   const pending = countByStatus.PENDING ?? 0;
   const approved = countByStatus.APPROVED ?? 0;
   const rejected = countByStatus.REJECTED ?? 0;
-  const total = statusCounts.reduce((sum, c) => sum + c._count._all, 0);
   const inPipeline = ACTIVE_STAGES.reduce(
     (sum, s) => sum + (countByStatus[s] ?? 0),
     0
